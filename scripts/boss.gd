@@ -22,6 +22,8 @@ const ATK := {
 	"charge": {"windup": 0.90, "active": 0.45, "recover": 0.85, "dmg": 1, "speed": 1250.0, "hit_dist": 62.0},
 }
 
+const BLINK_TIME := 0.16
+
 enum State { IDLE, TELEGRAPH, ATTACK, RECOVER, DEAD }
 
 var hp := MAX_HP
@@ -40,6 +42,9 @@ var _bob := 0.0
 var _eye_t := 0.0                    # 0..1 telegraph progress, drives eye color
 var _arm_t := 0.15                   # 0 rest .. 1 raised (anticipation pose)
 var _touch_cd := 0.0                 # body-contact damage throttle
+var _blink := 0.0                    # eye-blink timer, idle only
+var _blink_cd := 3.0
+var _death_t := 0.0                  # death spin-and-shrink progress
 
 @onready var player: Node = get_tree().get_first_node_in_group("player")
 
@@ -71,6 +76,16 @@ func _physics_process(delta: float) -> void:
 		State.ATTACK:    arm_target = 0.0
 	var arm_rate := 14.0 if state == State.ATTACK else 4.0
 	_arm_t = move_toward(_arm_t, arm_target, arm_rate * delta)
+
+	# idle eye blink
+	if state == State.IDLE:
+		_blink_cd -= delta
+		if _blink_cd <= 0.0:
+			_blink = BLINK_TIME
+			_blink_cd = randf_range(2.4, 5.0)
+	_blink = max(0.0, _blink - delta)
+	if state == State.DEAD:
+		_death_t += delta
 
 	_touch_cd = max(0.0, _touch_cd - delta)
 	if state != State.DEAD and state != State.ATTACK:
@@ -281,36 +296,84 @@ func _eye_color() -> Color:
 
 func _draw() -> void:
 	var body_col := Game.PALE_JADE if _flash <= 0.0 else Color.WHITE
-	var bob_y := sin(_bob * 1.5) * 6.0
-	draw_set_transform(Vector2(0, bob_y), sin(_bob * 0.7) * 0.03, _visual)
+
+	# base float: bob + slow rotation drift, both faster in phase 2
+	var rate := 2.2 if phase == 2 else 1.5
+	var off := Vector2(0, sin(_bob * rate) * 6.0)
+	var rot := sin(_bob * 0.7) * 0.03
+	var sq := _visual
+
+	match state:
+		State.TELEGRAPH:
+			# tremble + heartbeat pulse, both scaling with the windup
+			var j := _eye_t * _eye_t * 4.0
+			off += Vector2(randf_range(-j, j), randf_range(-j, j))
+			var beat := 1.0 + sin(_bob * (14.0 + 30.0 * _eye_t)) * 0.035 * _eye_t
+			sq *= Vector2(2.0 - beat, beat)
+			rot += _aim.x * 0.14 * _eye_t          # leans into the aim
+		State.ATTACK:
+			rot += _aim.x * 0.2
+			if _kind == "charge":
+				sq *= Vector2(1.14, 0.88)          # stretched along the dash
+			elif _kind == "ring":
+				var prog := 1.0 - clampf(_t / float(ATK["ring"]["active"]), 0.0, 1.0)
+				sq *= Vector2(1.0 + 0.09 * prog, 1.0 + 0.09 * prog)
+		State.DEAD:
+			rot += _death_t * 5.0
+			var s := maxf(0.0, 1.0 - _death_t * 1.1)
+			sq *= Vector2(s, s)
+
+	if _flash > 0.0:
+		var jf := _flash * 30.0
+		off += Vector2(randf_range(-jf, jf), randf_range(-jf, jf))
+
+	draw_set_transform(off, rot, sq)
 
 	# telegraph shapes first (under body), Pale Jade, alpha rising with _eye_t
 	if state == State.TELEGRAPH or state == State.ATTACK:
 		_draw_telegraph()
 
-	# arms (capsules) + 3-capsule hands, raised by _arm_t for anticipation
-	var lift := _arm_t * 1.15
-	var sh_l := Vector2(-30, -34)
-	var sh_r := Vector2(30, -34)
-	var hand_l := sh_l + (Vector2(-70, 20) - sh_l).rotated(lift)
-	var hand_r := sh_r + (Vector2(70, 20) - sh_r).rotated(-lift)
-	_capsule(sh_l, hand_l, 7, body_col)
-	_capsule(sh_r, hand_r, 7, body_col)
+	# arms: anticipation lift plus an idle sway that dies out as they raise;
+	# fingers splay wider and reach further the closer the attack gets
+	var sway := sin(_bob * 1.2) * 0.10 * (1.0 - _arm_t)
+	var sh_l := Vector2(-48, -42)
+	var sh_r := Vector2(48, -42)
+	# rest pose -> overhead pose, so the anticipation reads as "winding up to
+	# strike" rather than the arms swinging out sideways
+	var hand_l: Vector2 = Vector2(-104, 34).lerp(Vector2(-74, -112), _arm_t)
+	var hand_r: Vector2 = Vector2(104, 34).lerp(Vector2(74, -112), _arm_t)
+	hand_l = sh_l + (hand_l - sh_l).rotated(sway)
+	hand_r = sh_r + (hand_r - sh_r).rotated(-sway)
+	_capsule(sh_l, hand_l, 10, body_col)
+	_capsule(sh_r, hand_r, 10, body_col)
+	# fingers continue the arm's line, splaying wider and reaching further
+	# the closer the attack gets
+	var splay := deg_to_rad(28.0 + 20.0 * _eye_t)
+	var flen := 24.0 + 7.0 * _eye_t
+	var dir_l := (hand_l - sh_l).angle()
+	var dir_r := (hand_r - sh_r).angle()
 	for i in 3:
-		var ang := deg_to_rad(-30 + i * 30) + PI * 0.5
-		_capsule(hand_l, hand_l + Vector2(16, 0).rotated(ang + lift), 3, body_col)
-		_capsule(hand_r, hand_r + Vector2(16, 0).rotated(ang - lift), 3, body_col)
+		_capsule(hand_l, hand_l + Vector2(flen, 0).rotated(dir_l + (i - 1) * splay), 4.5, body_col)
+		_capsule(hand_r, hand_r + Vector2(flen, 0).rotated(dir_r + (i - 1) * splay), 4.5, body_col)
 
 	# body: inverted triangle
-	var pts := PackedVector2Array([Vector2(-58, -48), Vector2(58, -48), Vector2(0, 96)])
-	draw_colored_polygon(pts, body_col)
-	# facet shadow (Sapphire Core, soft)
-	var facet := PackedVector2Array([Vector2(-30, -30), Vector2(30, -30), Vector2(0, 34)])
-	draw_colored_polygon(facet, Color(Game.SAPPHIRE_CORE, 0.4))
-	# eye: diamond, color = windup timer
-	var e := 16.0
+	draw_colored_polygon(PackedVector2Array([Vector2(-58, -48), Vector2(58, -48), Vector2(0, 96)]), body_col)
+	# facet shadow (Sapphire Core), shimmering slowly so the gem reads as solid
+	var shimmer := 0.32 + 0.12 * sin(_bob * 1.9)
+	draw_colored_polygon(PackedVector2Array([Vector2(-30, -30), Vector2(30, -30), Vector2(0, 34)]),
+		Color(Game.SAPPHIRE_CORE, shimmer))
+	# phase 2: fracture lines — an in-world tell that it broke, not just HUD text
+	if phase == 2:
+		draw_line(Vector2(-40, -32), Vector2(4, 22), Game.DEEP_MOSS, 3.0)
+		draw_line(Vector2(4, 22), Vector2(34, -16), Game.DEEP_MOSS, 3.0)
+		draw_line(Vector2(-14, -48), Vector2(-2, -12), Game.DEEP_MOSS, 2.0)
+	# eye: diamond, color = windup timer, grows as it charges, blinks when idle
+	var e := 16.0 + 5.0 * _eye_t
+	var lid := 1.0
+	if _blink > 0.0:
+		lid = lerpf(1.0, 0.1, sin(PI * (1.0 - _blink / BLINK_TIME)))
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(0, -22 - e), Vector2(e, -22), Vector2(0, -22 + e), Vector2(-e, -22)
+		Vector2(0, -22 - e * lid), Vector2(e, -22), Vector2(0, -22 + e * lid), Vector2(-e, -22)
 	]), _eye_color())
 
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
