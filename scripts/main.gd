@@ -2,6 +2,9 @@ extends Node2D
 ## Arena, camera shake, particle bursts, run timer, win/lose, restart.
 
 const ARENA_MARGIN := Vector2(90, 80)
+# Extra headroom at the top: under the tilted camera the boss body draws about
+# 150px above its own floor position, and it must not run off screen.
+const ARENA_TOP := 260.0
 
 var arena_rect: Rect2
 var _shake := 0.0
@@ -18,7 +21,8 @@ var _cam_tw: Tween
 func _ready() -> void:
 	randomize()
 	var vp := get_viewport_rect().size
-	arena_rect = Rect2(ARENA_MARGIN, vp - ARENA_MARGIN * 2.0)
+	arena_rect = Rect2(ARENA_MARGIN.x, ARENA_TOP,
+		vp.x - ARENA_MARGIN.x * 2.0, vp.y - ARENA_TOP - ARENA_MARGIN.y)
 	camera.position = vp * 0.5
 
 	player.hit_taken.connect(func(): _hits_taken += 1)
@@ -106,6 +110,8 @@ func _finish(win: bool) -> void:
 
 
 func _draw() -> void:
-	# arena floor + border (Deep Moss ground, faint Sapphire Core edge)
-	draw_rect(arena_rect, Game.DEEP_MOSS)
+	# arena floor + border. The floor is lifted a little off the pure Deep Moss
+	# clear colour so the ground shadows under both fighters have something to
+	# darken; still only the two locked greens, mixed.
+	draw_rect(arena_rect, Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13))
 	draw_rect(arena_rect, Color(Game.SAPPHIRE_CORE, 0.5), false, 2.0)

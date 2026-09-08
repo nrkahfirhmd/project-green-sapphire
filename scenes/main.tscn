@@ -12,13 +12,14 @@ radius = 22.0
 radius = 46.0
 
 [node name="Main" type="Node2D"]
+y_sort_enabled = true
 script = ExtResource("1")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(800, 450)
 
 [node name="Boss" type="CharacterBody2D" parent="."]
-position = Vector2(800, 250)
+position = Vector2(800, 430)
 motion_mode = 1
 script = ExtResource("3")
 
@@ -26,7 +27,7 @@ script = ExtResource("3")
 shape = SubResource("CircleShape2D_boss")
 
 [node name="Player" type="CharacterBody2D" parent="."]
-position = Vector2(800, 690)
+position = Vector2(800, 740)
 motion_mode = 1
 script = ExtResource("2")
 

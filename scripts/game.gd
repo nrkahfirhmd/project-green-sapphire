@@ -6,6 +6,15 @@ const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
 const SAPPHIRE_CORE := Color("69A062") # player, muted text, eye mid-charge
 const PALE_JADE := Color("BBE2B6")     # boss body, blade, EVERY telegraph flash
 
+## Ellipse polygon centred on the origin. Ground shadows have to be flatter
+## than a circle to sit on the floor under the tilted camera.
+func ellipse(rx: float, ry: float, segments := 22) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in segments:
+		var a := TAU * i / segments
+		pts.append(Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
+
 # --- Session-best tracking (design bible: victory/defeat screen) --------
 var best_time := INF
 var best_hits := 999
