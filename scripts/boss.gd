@@ -12,6 +12,10 @@ const MAX_HP := 12
 const PHASE2_AT := 6
 
 const RADIUS := 46.0                 # body half-width, for hit math
+# The camera looks down at ~60 degrees, so global_position is the boss's point
+# on the floor and the body is drawn above it. Telegraphs and hit math stay on
+# the floor at the origin; only the body is lifted.
+const LIFT := Vector2(0, -104)
 const MOVE_SPEED := 70.0             # slow drift toward player when idle
 
 # Per-attack tuning. Phase 2 multiplies windup/recover by PHASE2_SPEED.
@@ -327,11 +331,16 @@ func _draw() -> void:
 		var jf := _flash * 30.0
 		off += Vector2(randf_range(-jf, jf), randf_range(-jf, jf))
 
-	draw_set_transform(off, rot, sq)
-
-	# telegraph shapes first (under body), Pale Jade, alpha rising with _eye_t
+	# telegraph shapes and the floor shadow both lie on the ground at the boss's
+	# own position, so they are drawn before the body is lifted
 	if state == State.TELEGRAPH or state == State.ATTACK:
 		_draw_telegraph()
+	var shrink := 1.0 - 0.07 * sin(_bob * rate)
+	if state == State.DEAD:
+		shrink *= maxf(0.0, 1.0 - _death_t * 1.1)
+	draw_colored_polygon(Game.ellipse(58.0 * shrink, 15.0 * shrink), Color(Game.DEEP_MOSS, 0.5))
+
+	draw_set_transform(off + LIFT, rot, sq)
 
 	# arms: anticipation lift plus an idle sway that dies out as they raise;
 	# fingers splay wider and reach further the closer the attack gets
