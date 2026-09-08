@@ -8,6 +8,7 @@ var _shake := 0.0
 var _elapsed := 0.0
 var _hits_taken := 0
 var _over := false
+var _cam_tw: Tween
 
 @onready var camera: Camera2D = $Camera2D
 @onready var player: CharacterBody2D = $Player
@@ -47,6 +48,16 @@ func add_shake(amount: float) -> void:
 	_shake = min(24.0, _shake + amount)
 
 
+# camera punch-in: quick zoom spike, used on big hits and transitions
+func punch(zoom_scale := 1.08, t_in := 0.07, t_out := 0.20) -> void:
+	if _cam_tw and _cam_tw.is_valid():
+		_cam_tw.kill()
+	camera.zoom = Vector2.ONE
+	_cam_tw = create_tween()
+	_cam_tw.tween_property(camera, "zoom", Vector2(zoom_scale, zoom_scale), t_in)
+	_cam_tw.tween_property(camera, "zoom", Vector2.ONE, t_out).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
 func spawn_burst(pos: Vector2, color: Color, n := 10, speed := 220.0) -> void:
 	var p := CPUParticles2D.new()
 	p.position = pos
@@ -72,10 +83,7 @@ func spawn_burst(pos: Vector2, color: Color, n := 10, speed := 220.0) -> void:
 # --- outcomes --------------------------------------------------------
 func _on_phase_changed(_phase: int) -> void:
 	add_shake(20.0)
-	# camera punch-in on the phase-2 transition
-	var tw := create_tween()
-	tw.tween_property(camera, "zoom", Vector2(1.12, 1.12), 0.12)
-	tw.tween_property(camera, "zoom", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	punch(1.14, 0.12, 0.35)
 
 
 func _on_player_died() -> void:
@@ -84,9 +92,7 @@ func _on_player_died() -> void:
 
 func _on_boss_died() -> void:
 	_finish(true)
-	var tw := create_tween()
-	tw.tween_property(camera, "zoom", Vector2(1.2, 1.2), 0.15)
-	tw.tween_property(camera, "zoom", Vector2.ONE, 0.5)
+	punch(1.2, 0.15, 0.5)
 
 
 func _finish(win: bool) -> void:
@@ -102,4 +108,4 @@ func _finish(win: bool) -> void:
 func _draw() -> void:
 	# arena floor + border (Deep Moss ground, faint Sapphire Core edge)
 	draw_rect(arena_rect, Game.DEEP_MOSS)
-	draw_rect(arena_rect, Game.SAPPHIRE_CORE * Color(1, 1, 1, 0.5), false, 2.0)
+	draw_rect(arena_rect, Color(Game.SAPPHIRE_CORE, 0.5), false, 2.0)
