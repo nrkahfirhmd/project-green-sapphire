@@ -9,8 +9,16 @@ Snapshot of the playable prototype. Pairs with `Claude/Green Sapphire/design-bib
 /Applications/Godot.app/Contents/MacOS/Godot --path .
 ```
 
-Godot 4.7.2. Main scene is `scenes/main.tscn`. No external assets — every
-visual is drawn in code.
+Godot 4.7.2. Main scene is `scenes/main.tscn`, at a 1600x900 viewport
+(`canvas_items` stretch, so it scales to any window). No external assets —
+every visual is drawn in code.
+
+Smoke check for the rigs — poses both characters through every animated state
+and redraws each, so a broken `_draw` fails here instead of mid-fight:
+
+```bash
+/Applications/Godot.app/Contents/MacOS/Godot --path . tools/anim_check.tscn
+```
 
 ## Controls
 
@@ -27,11 +35,12 @@ visual is drawn in code.
 | File | Responsibility |
 |---|---|
 | `scripts/game.gd` | Autoload `Game`. Locked palette constants, `hit_stop()`, session-best time/hits. |
-| `scripts/player.gd` | `CharacterBody2D`. Move / dodge / attack state machine. Code-drawn 8-part rig oriented to `facing`. Afterimage trail, walk squash. Geometry-based hit on the boss (reach + arc). |
+| `scripts/player.gd` | `CharacterBody2D`. Move / dodge / attack state machine. Code-drawn 9-part rig oriented to `facing`, every part on a Deep Moss backing so the limbs stay readable from straight above. Afterimage trail, stepping walk cycle, roll spin. Geometry-based hit on the boss (reach + arc). |
 | `scripts/boss.gd` | `CharacterBody2D`. `IDLE → TELEGRAPH → ATTACK → RECOVER` state machine. Three attacks, phase 2, anticipation arm pose, body-contact damage. Geometry-based hits on the player. |
 | `scripts/main.gd` | Arena rect + clamp, camera shake, camera `punch()`, particle bursts, run timer, win/lose, restart. |
 | `scripts/hud.gd` | `Control`. Boss segmented HP bar, player HP pips, telegraph warning, run timer, low-HP screen-edge pulse, victory/defeat panel. |
 | `scenes/main.tscn` | Wires camera, player, boss (collision shapes), HUD canvas layer. |
+| `tools/anim_check.tscn` | Dev-only smoke check; not part of the game. |
 
 Combat is pure math — no `Area2D`, no collision layers beyond the two bodies
 blocking each other. Every animation is a code tween (squash, stretch,
@@ -74,6 +83,15 @@ hit (`boss.gd`, `_draw`). Kept deliberately; everything else stays on-palette.
 - Boss recoils backward after a charge instead of squatting on the player
 - Phase 2 at 50% HP: timings ×0.62, 50% chance to chain a second attack
 - Both health bars — boss segmented (one segment per hit), player pips
+- Player rig: shoulder bar + narrow waist + separate head, sized so the boss
+  reads at roughly the bible's 2:1. `RIG` in `player.gd` scales the whole rig
+- Player animation: stepping walk cycle (legs alternate, arms counter-swing),
+  idle breathing, full-turn spin through the dodge roll, wind-back/sweep/settle
+  on the sword arm, jitter on damage
+- Boss animation: idle bob + facet shimmer + eye blink, arms that raise
+  overhead through the windup with fingers splaying wider as it nears,
+  telegraph tremble and heartbeat pulse, per-attack pose (lean into the aim,
+  stretch along a charge, swell on a ring), hurt jitter, death spin-and-shrink
 - Juice: hit-stop (scaled light/heavy), screen shake, hit particles,
   Pale Jade damage flash, camera punch-in on heavy hits / taking damage /
   phase-2 / victory
@@ -88,24 +106,24 @@ Priority order:
    hit, dodge, boss telegraph warning, boss attack, victory/death. Hook points
    are the signals above plus `Game.hit_stop` / `main.add_shake` /
    `main.punch` / `main.spawn_burst`.
-2. **Art / silhouette polish.** Rigs are placeholder-plus. The player read
-   from a top-down facing angle is a blob — needs a clearer front / shoulder
-   asymmetry. Bible Day 4.
+2. **Art / silhouette polish.** The player now reads as a figure with a sword
+   rather than a blob, but the off-hand arm is still a stub and the legs only
+   show on the back half of the stride. Bible Day 4.
 3. **Session-best persistence.** Stats live in RAM only, lost on quit. Bible
    only requires within-session, so this is optional.
-4. **Phase-2 in-world tell** beyond the HUD text + camera punch (bible allows
-   pacing-only).
+4. ~~Phase-2 in-world tell~~ — done: fracture lines across the boss body plus a
+   faster idle bob, on top of the HUD text and camera punch.
 5. **Balance / tuning pass.** Bible Day 5. All knobs are in the `ATTACKS`
    dict (`player.gd`) and the `ATK` dict + `PHASE2_SPEED` (`boss.gd`).
 
 ## Tuning knobs
 
-- Player: `SPEED`, `DODGE_*`, `ATTACKS` dict (windup/active/recovery/dmg/
+- Player: `RIG` (whole-rig scale), `OUTLINE`, `SPEED`, `DODGE_*`, `ATTACKS` dict (windup/active/recovery/dmg/
   reach/arc_deg/shake/hitstop/punch per attack), `MAX_HP`
 - Boss: `MAX_HP`, `PHASE2_AT`, `PHASE2_SPEED`, `MOVE_SPEED`, `RADIUS`,
   `ATK` dict (per-attack geometry + timing), idle-wait ranges in `_do_recover`
 - Camera: `add_shake` cap and decay in `main.gd`, `punch()` defaults
-- Arena: `ARENA_MARGIN` in `main.gd`
+- Arena: `ARENA_MARGIN` in `main.gd`; viewport size in `project.godot`
 
 ## Build plan status
 
@@ -114,5 +132,5 @@ Priority order:
 | 1 | Movement, dodge, light + heavy attack | done |
 | 2 | Boss state machine + both health bars | done |
 | 3 | Feedback: hit-stop, shake, particles, sound hooks | juice done, audio not wired |
-| 4 | Visual pass: shapes, animation, telegraph colors, background, UI | partial — telegraph colors + UI done, rigs placeholder |
+| 4 | Visual pass: shapes, animation, telegraph colors, background, UI | mostly done — telegraph colors, UI, and both rigs + animation passes done |
 | 5 | Feedback tuning, phase-2 twist, playtest, bug fixes | phase-2 done, tuning + playtest not started |
