@@ -115,7 +115,7 @@ func _draw() -> void:
 
 	# --- result panel ---
 	if _result_shown:
-		draw_rect(Rect2(Vector2.ZERO, vp), Color(0.1, 0.14, 0.1, 0.72))
+		draw_rect(Rect2(Vector2.ZERO, vp), Color(Game.DEEP_MOSS, 0.72))
 		var f := ThemeDB.fallback_font
 		var cx := vp.x * 0.5
 		var title := "VICTORY" if _result_win else "DEFEAT"
