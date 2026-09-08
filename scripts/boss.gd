@@ -38,6 +38,8 @@ var _flash := 0.0
 var _visual := Vector2.ONE
 var _bob := 0.0
 var _eye_t := 0.0                    # 0..1 telegraph progress, drives eye color
+var _arm_t := 0.15                   # 0 rest .. 1 raised (anticipation pose)
+var _touch_cd := 0.0                 # body-contact damage throttle
 
 @onready var player: Node = get_tree().get_first_node_in_group("player")
 
@@ -62,8 +64,29 @@ func _physics_process(delta: float) -> void:
 		State.RECOVER:   _do_recover(delta)
 		State.DEAD:      velocity = velocity.move_toward(Vector2.ZERO, 400.0 * delta)
 
+	# arm pose: raise on telegraph (anticipation), slam down on attack, drift to idle
+	var arm_target := 0.15
+	match state:
+		State.TELEGRAPH: arm_target = 0.4 + 0.6 * _eye_t
+		State.ATTACK:    arm_target = 0.0
+	var arm_rate := 14.0 if state == State.ATTACK else 4.0
+	_arm_t = move_toward(_arm_t, arm_target, arm_rate * delta)
+
+	_touch_cd = max(0.0, _touch_cd - delta)
+	if state != State.DEAD and state != State.ATTACK:
+		_check_body_contact()
+
 	move_and_slide()
 	queue_redraw()
+
+
+func _check_body_contact() -> void:
+	if _touch_cd > 0.0 or player == null or not is_instance_valid(player):
+		return
+	if global_position.distance_to(player.global_position) < RADIUS + 16.0:
+		_hurt_player(1)
+		_touch_cd = 0.6
+		_request_shake(6.0)
 
 
 func _spd(v: float) -> float:
@@ -138,7 +161,8 @@ func _do_attack(delta: float) -> void:
 	if _t <= 0.0:
 		state = State.RECOVER
 		_t = _spd(ATK[_kind]["recover"])
-		velocity = Vector2.ZERO
+		# after a charge, drift back off the player instead of squatting on them
+		velocity = -_aim * 220.0 if _kind == "charge" else Vector2.ZERO
 
 
 func _do_recover(delta: float) -> void:
@@ -264,20 +288,25 @@ func _draw() -> void:
 	if state == State.TELEGRAPH or state == State.ATTACK:
 		_draw_telegraph()
 
-	# arms (capsules) + 3-capsule hands
-	_capsule(Vector2(-30, -34), Vector2(-70, 20), 7, body_col)
-	_capsule(Vector2(30, -34), Vector2(70, 20), 7, body_col)
+	# arms (capsules) + 3-capsule hands, raised by _arm_t for anticipation
+	var lift := _arm_t * 1.15
+	var sh_l := Vector2(-30, -34)
+	var sh_r := Vector2(30, -34)
+	var hand_l := sh_l + (Vector2(-70, 20) - sh_l).rotated(lift)
+	var hand_r := sh_r + (Vector2(70, 20) - sh_r).rotated(-lift)
+	_capsule(sh_l, hand_l, 7, body_col)
+	_capsule(sh_r, hand_r, 7, body_col)
 	for i in 3:
-		var ang := deg_to_rad(-30 + i * 30)
-		_capsule(Vector2(-70, 20), Vector2(-70, 20) + Vector2(16, 0).rotated(ang + PI * 0.5), 3, body_col)
-		_capsule(Vector2(70, 20), Vector2(70, 20) + Vector2(16, 0).rotated(ang + PI * 0.5), 3, body_col)
+		var ang := deg_to_rad(-30 + i * 30) + PI * 0.5
+		_capsule(hand_l, hand_l + Vector2(16, 0).rotated(ang + lift), 3, body_col)
+		_capsule(hand_r, hand_r + Vector2(16, 0).rotated(ang - lift), 3, body_col)
 
 	# body: inverted triangle
 	var pts := PackedVector2Array([Vector2(-58, -48), Vector2(58, -48), Vector2(0, 96)])
 	draw_colored_polygon(pts, body_col)
 	# facet shadow (Sapphire Core, soft)
 	var facet := PackedVector2Array([Vector2(-30, -30), Vector2(30, -30), Vector2(0, 34)])
-	draw_colored_polygon(facet, Game.SAPPHIRE_CORE * Color(1, 1, 1, 0.4))
+	draw_colored_polygon(facet, Color(Game.SAPPHIRE_CORE, 0.4))
 	# eye: diamond, color = windup timer
 	var e := 16.0
 	draw_colored_polygon(PackedVector2Array([
