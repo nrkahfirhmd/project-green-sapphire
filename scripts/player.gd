@@ -1,7 +1,7 @@
 extends CharacterBody2D
 ## The Swordsman. Move (8-dir), dodge roll (i-frames + afterimage trail),
 ## light/heavy attack (one shared system, different numbers).
-## Code-driven rig: 9 parts, oriented to facing, animated with tweens.
+## Code-driven rig: upright 3/4 view, posed from facing, animated with tweens.
 
 signal died
 signal health_changed(current: int, max: int)
@@ -48,6 +48,7 @@ var _walk_amp := 0.0         # 0..1 walk bounce strength
 var _ghosts: Array = []      # [{pos:Vector2, f:float, age:float}]
 var _ghost_acc := 0.0
 var _idle_t := 0.0           # idle-breathing phase
+var _face_x := 1.0           # horizontal mirror; keeps its last side when facing straight up/down
 var _roll := 0.0             # dodge-roll spin, radians
 
 @onready var boss: Node = get_tree().get_first_node_in_group("boss")
@@ -61,6 +62,8 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_dodge_cd = max(0.0, _dodge_cd - delta)
 	_idle_t += delta
+	if absf(facing.x) > 0.15:
+		_face_x = signf(facing.x)
 	if _flash > 0.0:
 		_flash = max(0.0, _flash - delta)
 
@@ -246,9 +249,20 @@ func _clamp_to_arena() -> void:
 		global_position.y = clampf(global_position.y, r.position.y, r.end.y)
 
 
-# --- rig: 9 parts in a "facing = +X" local frame -----------------------
-func _p(x: float, y: float, f: float) -> Vector2:
-	return Vector2(x * RIG, y * RIG).rotated(f)
+# --- rig: upright 3/4 view, origin on the ground at the feet ------------
+## The camera looks down at roughly 60 degrees rather than straight overhead,
+## so the body stands up out of its ground position instead of rotating with
+## facing; turning is a mirror plus a front/back pose, not a spin.
+##
+## The ground plane itself is drawn 1:1, which is what keeps every hit test in
+## this file plain world-space math. Only things aimed along the ground -- the
+## blade, its swing arc -- get squashed by TILT on the way to the screen.
+const TILT := 0.5
+
+
+## Ground-plane vector -> screen offset under the tilted camera.
+func _project(v: Vector2) -> Vector2:
+	return Vector2(v.x, v.y * TILT)
 
 
 ## Sword-arm angle relative to facing: settle at rest, wind back, sweep through.
@@ -266,88 +280,111 @@ func _swing_angle() -> float:
 
 
 func _draw() -> void:
-	var f := facing.angle()
-
-	# afterimages first, in world-offset space, untouched by the body transform
-	for g in _ghosts:
-		var a: float = (1.0 - float(g.age) / GHOST_LIFE) * 0.35
-		var off: Vector2 = g.pos - global_position
-		var gf: float = g.f
-		var gc := Color(Game.SAPPHIRE_CORE, a)
-		_capsule(off + _p(-20, 0, gf), off + _p(-2, 0, gf), 9 * RIG, gc)
-		draw_circle(off + _p(8, 0, gf), 10 * RIG, gc)
-
 	var col := Game.PALE_JADE if _flash > 0.0 else Game.SAPPHIRE_CORE
 
-	# body transform: idle breathing, walk squash + hop, dodge-roll spin, hurt jitter
+	# afterimages and the ground shadow both lie on the floor, so they are
+	# drawn outside the body transform
+	for g in _ghosts:
+		var a: float = (1.0 - float(g.age) / GHOST_LIFE) * 0.32
+		var off: Vector2 = g.pos - global_position
+		var gc := Color(Game.SAPPHIRE_CORE, a)
+		_capsule(off + Vector2(0, -32 * RIG), off + Vector2(0, -14 * RIG), 8 * RIG, gc)
+		draw_circle(off + Vector2(0, -39 * RIG), 6.5 * RIG, gc)
+
+	draw_colored_polygon(Game.ellipse(13 * RIG, 5 * RIG), Color(Game.DEEP_MOSS, 0.55))
+
+	# body transform: breathing, walk bob, dodge tumble, hurt jitter
 	var sq := _visual
-	var hop := 0.0
-	var spin := 0.0
 	var breathe := 1.0 + sin(_idle_t * 2.4) * 0.022 * (1.0 - _walk_amp)
-	sq *= Vector2(breathe, 2.0 - breathe)
+	sq *= Vector2(2.0 - breathe, breathe)
+	var offset := Vector2.ZERO
 	if _walk_amp > 0.0:
-		var w := sin(_walk * 2.0) * 0.06 * _walk_amp
-		sq *= Vector2(1.0 - w, 1.0 + w)
-		hop = -absf(sin(_walk)) * 4.0 * _walk_amp
-	if state == State.DODGE:
-		spin = _roll                       # full turn over the roll: a top-down tumble
-		sq *= Vector2(1.06, 0.86)
-	var jitter := Vector2.ZERO
+		offset.y = -absf(sin(_walk)) * 3.0 * RIG * _walk_amp
 	if _flash > 0.0:
 		var j := _flash * 14.0
-		jitter = Vector2(randf_range(-j, j), randf_range(-j, j))
-	draw_set_transform(Vector2(0, hop) + jitter, spin, sq)
+		offset += Vector2(randf_range(-j, j), randf_range(-j, j))
+	var spin := 0.0
+	if state == State.DODGE:
+		# tumble about the waist; rotating about the feet would read as a topple
+		spin = _roll * _face_x
+		var pivot := Vector2(0, -22 * RIG)
+		offset += pivot - pivot.rotated(spin)
+		sq *= Vector2(1.0, 0.92)
+	draw_set_transform(offset, spin, sq)
 
-	# legs: alternating stride along the facing axis, so the walk actually steps
-	var stride := sin(_walk) * 10.0 * _walk_amp
-	_capsule_o(_p(-16, -8, f), _p(-24 + stride, -10, f), 5.5 * RIG, col)
-	_capsule_o(_p(-16, 8, f), _p(-24 - stride, 10, f), 5.5 * RIG, col)
+	# legs step along the travel direction
+	var stride := sin(_walk) * 6.0 * RIG * _walk_amp
+	_capsule_o(Vector2(-4.5 * RIG, -15 * RIG), Vector2(-4.5 * RIG + stride, 0.0), 3.5 * RIG, col)
+	_capsule_o(Vector2(4.5 * RIG, -15 * RIG), Vector2(4.5 * RIG - stride, 0.0), 3.5 * RIG, col)
 
-	# off arm: counter-swings against the legs
-	var sh_b := _p(0, -20, f)
-	_capsule_o(sh_b, _p(12 - stride * 0.8, -34, f), 4.5 * RIG, col)
+	# walking away from the camera puts the sword arm behind the body
+	var behind := facing.y < -0.3
+	if behind:
+		_draw_sword(col)
 
-	# torso, then a shoulder bar across it. The bar is what gives the rig a
-	# humanoid T from straight above; the head then sits on top of it.
-	_capsule_o(_p(-20, 0, f), _p(-2, 0, f), 9 * RIG, col)
-	var sh_f := _p(0, 20, f)
-	_capsule_o(sh_b, sh_f, 7.5 * RIG, col)
+	_capsule_o(Vector2(-7.5 * RIG * _face_x, -29 * RIG),
+		Vector2(-9.5 * RIG * _face_x, -14 * RIG), 3.2 * RIG, col)
+	_capsule_o(Vector2(0, -32 * RIG), Vector2(0, -14 * RIG), 8 * RIG, col)
+	_circle_o(Vector2(0, -39 * RIG), 6.5 * RIG, col)
 
-	# sword arm + greatsword: Deep Moss grip, Pale Jade blade of 2 triangles
-	var swing := _swing_angle()
-	var hand := sh_f + _p(16, 6, f).rotated(swing)
-	_capsule_o(sh_f, hand, 5.0 * RIG, col)
+	# eyes exist only on the side of the head the camera can actually see
+	if facing.y > -0.3:
+		var ey := -40.0 * RIG + facing.y * 1.5 * RIG
+		var ex := 2.4 * RIG
+		var cx := _face_x * 1.4 * RIG
+		draw_circle(Vector2(cx - ex, ey), 1.4 * RIG, Game.DEEP_MOSS)
+		draw_circle(Vector2(cx + ex, ey), 1.4 * RIG, Game.DEEP_MOSS)
 
-	var reach := 62.0 * RIG
+	if not behind:
+		_draw_sword(col)
+
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Sword arm and greatsword. The pose is worked out as a ground-plane angle and
+## then projected, so a swing toward the camera reads long and one away from it
+## reads short, which is most of what sells the camera angle.
+func _draw_sword(col: Color) -> void:
+	var ga := facing.angle() + _swing_angle() * _face_x
+	var gdir := Vector2(1, 0).rotated(ga)
+
+	var shoulder := Vector2(8 * RIG * _face_x, -30 * RIG)
+	var hand := shoulder + _project(gdir * 10.0 * RIG)
+	_capsule_o(shoulder, hand, 3.5 * RIG, col)
+
+	# blade is drawn shorter than the attack's true reach; the arc flash below
+	# is what shows the real hitbox
+	var reach := 40.0 * RIG
 	if state == State.ATTACK:
-		reach = float(ATTACKS[_atk_name]["reach"]) * (0.5 if _atk_phase == "windup" else 0.85)
-	var bf := f + swing
-	var dir := Vector2(1, 0).rotated(bf)
-	var nrm := Vector2(-dir.y, dir.x)
-	var guard := hand + dir * 14.0 * RIG
-	var tip := hand + dir * reach
-	var hw := 9.0 * RIG
+		reach = float(ATTACKS[_atk_name]["reach"]) * (0.34 if _atk_phase == "windup" else 0.55)
+	var guard := hand + _project(gdir * 8.0 * RIG)
+	var tip := hand + _project(gdir * reach)
+	var sdir := (tip - guard).normalized()
+	var nrm := Vector2(-sdir.y, sdir.x)
+	var hw := 7.0 * RIG
+
 	draw_colored_polygon(PackedVector2Array([
-		guard - nrm * (hw + OUTLINE), guard + nrm * (hw + OUTLINE), tip + dir * OUTLINE
+		guard - nrm * (hw + OUTLINE), guard + nrm * (hw + OUTLINE), tip + sdir * OUTLINE
 	]), Game.DEEP_MOSS)
-	_capsule(hand - dir * 7.0 * RIG, guard, 5.0 * RIG + OUTLINE, col)
-	_capsule(hand - dir * 7.0 * RIG, guard, 5.0 * RIG, Game.DEEP_MOSS)
+	# the Deep Moss grip sits on a Deep Moss floor, so it needs a backing to
+	# keep the hand visually joined to the blade
+	var butt := hand - sdir * 4.0 * RIG
+	_capsule(butt, guard, 3.0 * RIG + OUTLINE, col)
+	_capsule(butt, guard, 3.0 * RIG, Game.DEEP_MOSS)
 	draw_colored_polygon(PackedVector2Array([guard - nrm * hw, guard, tip]), Game.PALE_JADE)
 	draw_colored_polygon(PackedVector2Array([guard, guard + nrm * hw, tip]), Color(Game.PALE_JADE, 0.82))
 
-	# head last, so it reads as one clean circle on top of the shoulders
-	_circle_o(_p(8, 0, f), 10 * RIG, col)
-	draw_circle(_p(15, 0, f), 3.0 * RIG, Game.DEEP_MOSS)
-
-	# active swing arc flash (blade sweep, Pale Jade), fading as it passes
+	# swing arc: a ground circle around the player, flattened by the camera
 	if state == State.ATTACK and _atk_phase == "active":
 		var a: Dictionary = ATTACKS[_atk_name]
 		var half := deg_to_rad(float(a["arc_deg"]) * 0.5)
+		var r := float(a["reach"])
+		var base := Vector2(0, -24 * RIG)
+		var pts := PackedVector2Array()
+		for i in 17:
+			pts.append(base + _project(Vector2(r, 0).rotated(facing.angle() - half + 2.0 * half * i / 16.0)))
 		var t := _atk_progress()
-		draw_arc(Vector2.ZERO, float(a["reach"]), f - half, f + half, 24,
-			Color(Game.PALE_JADE, 1.0 - t * 0.6), 5.0 - t * 3.0)
-
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_polyline(pts, Color(Game.PALE_JADE, 1.0 - t * 0.6), 5.0 - t * 3.0)
 
 
 func _capsule(a: Vector2, b: Vector2, r: float, col: Color) -> void:
