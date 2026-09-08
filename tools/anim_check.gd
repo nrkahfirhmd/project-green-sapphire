@@ -4,43 +4,71 @@ extends Node
 ## script error here instead of mid-fight.
 ##
 ##   /Applications/Godot.app/Contents/MacOS/Godot --path . tools/anim_check.tscn
+##
+## Needs a real window — a --script run skips autoloads and Game never resolves.
+
 
 func _ready() -> void:
 	add_child(load("res://scenes/main.tscn").instantiate())
 	await get_tree().process_frame
 	var p := get_tree().get_first_node_in_group("player")
 	var b := get_tree().get_first_node_in_group("boss")
+	assert(p != null and b != null, "player or boss missing from the scene")
+	# drive the poses by hand instead of letting the state machines advance
 	p.set_physics_process(false)
 	b.set_physics_process(false)
-	b.global_position = Vector2(800, 300)
+	b.global_position = Vector2(800, 430)
+	p.global_position = Vector2(800, 700)
 
-	# 1. idle / walk pose, player facing the boss
-	p.global_position = Vector2(800, 620)
-	p.facing = Vector2.UP
-	p._walk_amp = 1.0
-	p._walk = 1.1
-	b._arm_t = 0.15
-	await _settle()
+	# the rig poses off facing — mirror, front or back, sword in front of the
+	# body or behind it — so every direction is its own draw path
+	var facings := [
+		Vector2.DOWN, Vector2.UP, Vector2.LEFT, Vector2.RIGHT,
+		Vector2(1, -1).normalized(), Vector2(-1, 1).normalized(),
+	]
+	for d in facings:
+		p.state = 0
+		p.facing = d
+		p._face_x = 1.0 if d.x >= 0.0 else -1.0
+		p._walk_amp = 1.0
+		p._walk = 1.1
+		await _settle()
 
-	# 2. heavy swing mid-active, boss telegraphing a slam
-	p.global_position = Vector2(760, 480)
-	p.facing = Vector2(0.3, -1).normalized()
-	p._walk_amp = 0.0
-	p.state = 2; p._atk_name = "heavy"; p._atk_phase = "active"
-	p._atk_dur = 0.08; p._atk_timer = 0.045
-	b.state = 1; b._kind = "slam"; b._eye_t = 0.8; b._arm_t = 0.9
-	b._aim = Vector2.DOWN
-	await _settle()
+	# both attacks, every phase
+	for atk in ["light", "heavy"]:
+		for phase in ["windup", "active", "recovery"]:
+			p.state = 2
+			p._atk_name = atk
+			p._atk_phase = phase
+			p._atk_dur = 0.1
+			p._atk_timer = 0.05
+			await _settle()
 
-	# 3. dodge roll mid-spin, boss phase 2 charging
-	p.global_position = Vector2(620, 560)
-	p.facing = Vector2.RIGHT
-	p.state = 1; p._roll = 2.2
-	p._ghosts = [{"pos": Vector2(560, 560), "f": 0.0, "age": 0.10},
-		{"pos": Vector2(590, 560), "f": 0.0, "age": 0.05}]
-	b.phase = 2; b.state = 1; b._kind = "charge"; b._eye_t = 0.95; b._arm_t = 1.0
-	b._aim = Vector2(-0.4, 1).normalized()
+	# dodge mid-tumble, with afterimages, and a damage flash
+	p.state = 1
+	p._roll = 2.2
+	p._flash = 0.12
+	p._ghosts = [{"pos": Vector2(740, 700), "f": 0.0, "age": 0.10},
+		{"pos": Vector2(770, 700), "f": 0.0, "age": 0.05}]
 	await _settle()
+	p.state = 0
+	p._ghosts = []
+
+	# boss: every state against every attack, in both phases
+	for ph in [1, 2]:
+		for st in 5:
+			for k in ["slam", "ring", "charge"]:
+				b.phase = ph
+				b.state = st
+				b._kind = k
+				b._eye_t = 0.7
+				b._t = 0.2
+				b._arm_t = 0.9
+				b._blink = 0.08
+				b._death_t = 0.3
+				b._flash = 0.05
+				b._aim = Vector2.DOWN
+				await _settle()
 
 	print("anim_check: every animated state drew without error")
 	get_tree().quit()
