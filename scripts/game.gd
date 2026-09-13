@@ -6,6 +6,24 @@ const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
 const SAPPHIRE_CORE := Color("69A062") # player, muted text, eye mid-charge
 const PALE_JADE := Color("BBE2B6")     # boss body, blade, EVERY telegraph flash
 
+## Safe-area rect in viewport units. On iOS the notch and the home indicator
+## cover the screen edges, which is exactly where the touch controls and the
+## HUD readouts want to sit. Off-device this is simply the whole viewport.
+func safe_area(viewport_size: Vector2) -> Rect2:
+	var full := Rect2(Vector2.ZERO, viewport_size)
+	if not OS.has_feature("mobile"):
+		return full
+	var win := Vector2(DisplayServer.window_get_size())
+	if win.x <= 0.0 or win.y <= 0.0:
+		return full
+	# get_display_safe_area() reports screen pixels; the viewport is stretched,
+	# so convert before anyone positions anything with it
+	var safe := DisplayServer.get_display_safe_area()
+	var k := viewport_size / win
+	var r := Rect2(Vector2(safe.position) * k, Vector2(safe.size) * k).intersection(full)
+	return r if r.get_area() > 0.0 else full
+
+
 ## Ellipse polygon centred on the origin. Ground shadows have to be flatter
 ## than a circle to sit on the floor under the tilted camera.
 func ellipse(rx: float, ry: float, segments := 22) -> PackedVector2Array:

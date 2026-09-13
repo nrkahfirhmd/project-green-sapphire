@@ -62,14 +62,14 @@ func _fmt_time(t: float) -> String:
 
 
 func _draw() -> void:
-	var vp := size
+	var vp := Game.safe_area(size)
 
 	# --- boss segmented HP bar (top center) ---
 	var seg_w := 26.0
 	var gap := 4.0
 	var total := _b_max * seg_w + (_b_max - 1) * gap
-	var x0 := (vp.x - total) * 0.5
-	var y0 := 26.0
+	var x0 := vp.position.x + (vp.size.x - total) * 0.5
+	var y0 := vp.position.y + 26.0
 	for i in _b_max:
 		var r := Rect2(x0 + i * (seg_w + gap), y0, seg_w, 12.0)
 		var filled := i < _b_hp
@@ -84,7 +84,7 @@ func _draw() -> void:
 
 	# --- player HP pips (bottom left) ---
 	for i in _p_max:
-		var c := Vector2(40 + i * 30, vp.y - 40)
+		var c := Vector2(vp.position.x + 40 + i * 30, vp.end.y - 40)
 		if i < _p_hp:
 			draw_circle(c, 10, Game.SAPPHIRE_CORE)
 		else:
@@ -92,13 +92,13 @@ func _draw() -> void:
 			draw_arc(c, 10, 0, TAU, 20, Game.SAPPHIRE_CORE, 1.5)
 
 	# --- run timer (top left) ---
-	draw_string(ThemeDB.fallback_font, Vector2(30, 40),
+	draw_string(ThemeDB.fallback_font, vp.position + Vector2(30, 40),
 		_fmt_time(_elapsed), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Game.SAPPHIRE_CORE)
 
 	# --- telegraph warning flash ---
 	if _tele > 0.0:
 		var a := _tele / 0.6
-		draw_string(ThemeDB.fallback_font, Vector2(vp.x * 0.5 - 60, 90),
+		draw_string(ThemeDB.fallback_font, Vector2(vp.get_center().x - 60, vp.position.y + 90),
 			"! INCOMING", HORIZONTAL_ALIGNMENT_LEFT, -1, 22,
 			Color(Game.PALE_JADE.r, Game.PALE_JADE.g, Game.PALE_JADE.b, a))
 
@@ -108,18 +108,18 @@ func _draw() -> void:
 		var a := (0.35 + 0.35 * sin(_pulse_t)) * (1.0 - frac / 0.5)
 		var col := Color(Game.PALE_JADE.r, Game.PALE_JADE.g, Game.PALE_JADE.b, clampf(a, 0.0, 0.8))
 		var w := 14.0
-		draw_rect(Rect2(0, 0, vp.x, w), col)
-		draw_rect(Rect2(0, vp.y - w, vp.x, w), col)
-		draw_rect(Rect2(0, 0, w, vp.y), col)
-		draw_rect(Rect2(vp.x - w, 0, w, vp.y), col)
+		draw_rect(Rect2(0, 0, size.x, w), col)
+		draw_rect(Rect2(0, size.y - w, size.x, w), col)
+		draw_rect(Rect2(0, 0, w, size.y), col)
+		draw_rect(Rect2(size.x - w, 0, w, size.y), col)
 
 	# --- result panel ---
 	if _result_shown:
-		draw_rect(Rect2(Vector2.ZERO, vp), Color(Game.DEEP_MOSS, 0.72))
+		draw_rect(Rect2(Vector2.ZERO, size), Color(Game.DEEP_MOSS, 0.72))
 		var f := ThemeDB.fallback_font
-		var cx := vp.x * 0.5
+		var cx := vp.get_center().x
 		var title := "VICTORY" if _result_win else "DEFEAT"
-		draw_string(f, Vector2(cx - 90, vp.y * 0.5 - 70), title,
+		draw_string(f, Vector2(cx - 90, vp.get_center().y - 70), title,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Game.PALE_JADE)
 		var lines := [
 			"time    %s" % _fmt_time(_result_time),
@@ -129,7 +129,7 @@ func _draw() -> void:
 			lines.append("best time    %s" % _fmt_time(Game.best_time))
 			lines.append("best hits    %d" % Game.best_hits)
 		lines.append("")
-		lines.append("press R to fight again")
+		lines.append("tap RESTART   ·   press R")
 		for i in lines.size():
-			draw_string(f, Vector2(cx - 110, vp.y * 0.5 - 20 + i * 26), lines[i],
+			draw_string(f, Vector2(cx - 110, vp.get_center().y - 20 + i * 26), lines[i],
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Game.SAPPHIRE_CORE)
