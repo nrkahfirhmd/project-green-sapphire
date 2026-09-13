@@ -22,13 +22,23 @@ and redraws each, so a broken `_draw` fails here instead of mid-fight:
 
 ## Controls
 
-| Key | Action |
-|---|---|
-| WASD | Move (8-direction) |
-| Space | Dodge roll (~0.18s dash, ~0.20s i-frames, 0.5s cooldown) |
-| K | Light attack (fast, 1 dmg, short recovery) |
-| L | Heavy attack (slow, 3 dmg, long recovery) |
-| R | Restart |
+Keyboard and touch both drive the same input actions, so either works at any
+time and neither knows about the other.
+
+| Key | Touch | Action |
+|---|---|---|
+| WASD | analog stick, left half | Move (8-direction) |
+| Space | DODGE | Dodge roll (~0.18s dash, ~0.20s i-frames, 0.5s cooldown) |
+| K | LIGHT | Light attack (fast, 1 dmg, short recovery) |
+| L | HEAVY | Heavy attack (slow, 3 dmg, long recovery) |
+| R | RESTART (shown on the result screen) | Restart |
+
+The stick is **floating** — it appears wherever the left thumb lands rather
+than sitting at a fixed spot, which is the difference between usable and not on
+a phone. It feeds `move_*` at analog strength via `Input.action_press`, so
+`Input.get_vector` in `player.gd` reads it exactly like a gamepad. Note that
+the player still moves at a single speed: the stick sets direction only, since
+`player.gd` normalises the vector.
 
 ## Architecture
 
@@ -39,8 +49,10 @@ and redraws each, so a broken `_draw` fails here instead of mid-fight:
 | `scripts/boss.gd` | `CharacterBody2D`. `IDLE → TELEGRAPH → ATTACK → RECOVER` state machine. Three attacks, phase 2, anticipation arm pose, body-contact damage. Geometry-based hits on the player. |
 | `scripts/main.gd` | Arena rect + clamp, camera shake, camera `punch()`, particle bursts, run timer, win/lose, restart. |
 | `scripts/hud.gd` | `Control`. Boss segmented HP bar, player HP pips, telegraph warning, run timer, low-HP screen-edge pulse, victory/defeat panel. |
+| `scripts/touch_controls.gd` | `Control`. Floating analog stick, action buttons, restart button. Talks to the game only through input actions. |
 | `scenes/main.tscn` | Wires camera, player, boss (collision shapes), HUD canvas layer. |
-| `tools/anim_check.tscn` | Dev-only smoke check; not part of the game. |
+| `tools/anim_check.tscn` | Dev-only smoke check for the rigs; not part of the game. |
+| `tools/touch_check.tscn` | Dev-only smoke check for the on-screen controls. |
 
 Combat is pure math — no `Area2D`, no collision layers beyond the two bodies
 blocking each other. Every animation is a code tween (squash, stretch,
@@ -76,6 +88,29 @@ practice that means:
   arc into an ellipse.
 - Both fighters cast a Deep Moss ground shadow, and `Main` has `y_sort_enabled`
   so whoever stands nearer the camera draws in front.
+
+## iOS
+
+The target is iPhone, landscape either way up
+(`display/window/handheld/orientation=4`, sensor landscape).
+
+- **Safe area.** `Game.safe_area()` converts `DisplayServer.get_display_safe_area()`
+  from screen pixels into viewport units. The notch and the home indicator
+  cover exactly the corners the touch buttons and HUD readouts want, so both
+  anchor to that rect instead of to the raw viewport. Off-device it returns the
+  whole viewport, so nothing moves on desktop. The low-HP edge pulse and the
+  result overlay deliberately ignore it and cover the whole screen.
+- **Aspect.** Stretch is `canvas_items` / `expand`, and the arena derives from
+  the viewport, so the playfield simply widens on a taller phone rather than
+  letterboxing. Controls anchor to corners for the same reason.
+- `input_devices/pointing/emulate_touch_from_mouse` is on, so the on-screen
+  controls can be driven with a mouse when testing on desktop.
+
+**Not done: there is no iOS build yet.** Godot's iOS export templates are not
+installed (`~/Library/Application Support/Godot/export_templates/` is empty)
+and there is no `export_presets.cfg`. Getting one onto a simulator needs the
+templates installed, an iOS export preset, and then building the generated
+Xcode project. A real device additionally needs a signing team.
 
 ## Palette
 
@@ -130,20 +165,24 @@ colours rather than a fourth hue. Both kept deliberately.
 
 Priority order:
 
-1. **Audio — all 7 SFX.** None exist. Bible list: light swing, heavy swing,
+1. **iOS build.** Everything is in place in-engine, but no export has been
+   run — see the iOS section above for what is missing.
+2. **Audio — all 7 SFX.** None exist. Bible list: light swing, heavy swing,
    hit, dodge, boss telegraph warning, boss attack, victory/death. Hook points
    are the signals above plus `Game.hit_stop` / `main.add_shake` /
    `main.punch` / `main.spawn_burst`.
-2. **Art / silhouette polish.** The player reads as a standing swordsman from
+3. **Art / silhouette polish.** The player reads as a standing swordsman from
    every facing. Still rough: there is no distinct back-of-head treatment
    beyond dropping the eyes, and the boss keeps one pose for all eight
    directions. Bible Day 4.
-3. **Session-best persistence.** Stats live in RAM only, lost on quit. Bible
+4. **Balance / tuning pass.** Bible Day 5, and it matters more on touch than it
+   did on a keyboard. All knobs are in the `ATTACKS` dict (`player.gd`) and the
+   `ATK` dict + `PHASE2_SPEED` (`boss.gd`).
+5. **Session-best persistence.** Stats live in RAM only, lost on quit. Bible
    only requires within-session, so this is optional.
-4. ~~Phase-2 in-world tell~~ — done: fracture lines across the boss body plus a
-   faster idle bob, on top of the HUD text and camera punch.
-5. **Balance / tuning pass.** Bible Day 5. All knobs are in the `ATTACKS`
-   dict (`player.gd`) and the `ATK` dict + `PHASE2_SPEED` (`boss.gd`).
+
+~~Phase-2 in-world tell~~ — done: fracture lines across the boss body plus a
+faster idle bob, on top of the HUD text and camera punch.
 
 ## Tuning knobs
 
