@@ -1,5 +1,41 @@
 extends Node
-## Global singleton: locked palette, hit-stop, session-best run stats.
+## Global singleton: locked palette, hit-stop, session-best run stats, settings.
+
+# --- Settings (persisted to user://) ---------------------------------
+const _CFG_PATH := "user://settings.cfg"
+var volume := 1.0            # 0..1, Master bus
+var haptic_enabled := true
+
+func _ready() -> void:
+	_load_settings()
+	apply_volume()
+
+func apply_volume() -> void:
+	var idx := AudioServer.get_bus_index("Master")
+	AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(volume, 0.0001, 1.0)))
+	AudioServer.set_bus_mute(idx, volume <= 0.001)
+
+func set_volume(v: float) -> void:
+	volume = clampf(v, 0.0, 1.0)
+	apply_volume()
+	_save_settings()
+
+func set_haptic(on: bool) -> void:
+	haptic_enabled = on
+	_save_settings()
+
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(_CFG_PATH) != OK:
+		return
+	volume = cfg.get_value("audio", "volume", volume)
+	haptic_enabled = cfg.get_value("input", "haptic", haptic_enabled)
+
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("audio", "volume", volume)
+	cfg.set_value("input", "haptic", haptic_enabled)
+	cfg.save(_CFG_PATH)
 
 # --- Locked 3-color palette (design bible) -------------------------------
 const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
