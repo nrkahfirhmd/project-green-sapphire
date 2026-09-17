@@ -167,10 +167,12 @@ Priority order:
 
 1. **iOS build.** Everything is in place in-engine, but no export has been
    run — see the iOS section above for what is missing.
-2. **Audio — all 7 SFX.** None exist. Bible list: light swing, heavy swing,
-   hit, dodge, boss telegraph warning, boss attack, victory/death. Hook points
-   are the signals above plus `Game.hit_stop` / `main.add_shake` /
-   `main.punch` / `main.spawn_burst`.
+2. **Audio — 3 of 7 SFX wired.** Player attack (light + heavy share one clip),
+   dodge, and taking a hit play from `media/*.mp3`, wired inline in `player.gd`.
+   Still missing: separate heavy swing, boss telegraph warning, boss attack,
+   victory/death — the cross-node ones. Hook points for those are the signals
+   above plus `Game.hit_stop` / `main.add_shake` / `main.punch` /
+   `main.spawn_burst`.
 3. **Art / silhouette polish.** The player reads as a standing swordsman from
    every facing. Still rough: there is no distinct back-of-head treatment
    beyond dropping the eyes, and the boss keeps one pose for all eight
@@ -201,6 +203,6 @@ faster idle bob, on top of the HUD text and camera punch.
 |---|---|---|
 | 1 | Movement, dodge, light + heavy attack | done |
 | 2 | Boss state machine + both health bars | done |
-| 3 | Feedback: hit-stop, shake, particles, sound hooks | juice done, audio not wired |
+| 3 | Feedback: hit-stop, shake, particles, sound hooks | juice done, 3/7 SFX wired |
 | 4 | Visual pass: shapes, animation, telegraph colors, background, UI | mostly done — telegraph colors, UI, and both rigs + animation passes done |
 | 5 | Feedback tuning, phase-2 twist, playtest, bug fixes | phase-2 done, tuning + playtest not started |

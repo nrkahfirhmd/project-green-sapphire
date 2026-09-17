@@ -53,10 +53,27 @@ var _roll := 0.0             # dodge-roll spin, radians
 
 @onready var boss: Node = get_tree().get_first_node_in_group("boss")
 
+const SFX := {
+	"attack": preload("res://media/attack.mp3"),
+	"dodge": preload("res://media/dodge.mp3"),
+	"hit": preload("res://media/hit.mp3"),
+}
+var _sfx_players := {}
+
 
 func _ready() -> void:
 	add_to_group("player")
+	# one player per clip so a landing hit can overlap its own swing
+	for name in SFX:
+		var p := AudioStreamPlayer.new()
+		p.stream = SFX[name]
+		add_child(p)
+		_sfx_players[name] = p
 	health_changed.emit(hp, MAX_HP)
+
+
+func _play_sfx(name: String) -> void:
+	_sfx_players[name].play()
 
 
 func _physics_process(delta: float) -> void:
@@ -117,6 +134,7 @@ func _start_dodge() -> void:
 	_ghost_acc = 0.0
 	_roll = 0.0
 	_pop_visual(Vector2(1.35, 0.7))   # stretch along travel
+	_play_sfx("dodge")
 	_burst(global_position, Game.SAPPHIRE_CORE, 8)
 	get_tree().create_timer(DODGE_IFRAME_TIME).timeout.connect(func(): invulnerable = false)
 
@@ -146,6 +164,7 @@ func _start_attack(name: String) -> void:
 	_walk_amp = 0.0
 	var s := 1.25 if name == "heavy" else 1.12
 	_pop_visual(Vector2(s, 2.0 - s))   # scale-pulse windup
+	_play_sfx("attack")
 
 
 func _do_attack(delta: float) -> void:
@@ -203,6 +222,7 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 	hp -= amount
 	_flash = 0.18
 	invulnerable = true
+	_play_sfx("hit")
 	velocity = (global_position - from_pos).normalized() * 340.0
 	_pop_visual(Vector2(1.3, 0.75))
 	_request_shake(9.0)
