@@ -223,6 +223,8 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 	_flash = 0.18
 	invulnerable = true
 	_play_sfx("hit")
+	if Game.haptic_enabled:
+		Input.vibrate_handheld(100)   # ponytail: fixed 100ms buzz, tune if it needs weight per hit
 	velocity = (global_position - from_pos).normalized() * 340.0
 	_pop_visual(Vector2(1.3, 0.75))
 	_request_shake(9.0)
