@@ -8,7 +8,7 @@ extends Control
 
 
 func _ready() -> void:
-	$Menu/VBox/Play.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main.tscn"))
+	$Menu/VBox/Play.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/hub.tscn"))
 	$Menu/VBox/Settings.pressed.connect(_open_settings.bind(true))
 	$Settings/VBox/Back.pressed.connect(_open_settings.bind(false))
 

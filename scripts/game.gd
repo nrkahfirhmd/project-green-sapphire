@@ -1,5 +1,6 @@
 extends Node
-## Global singleton: locked palette, hit-stop, session-best run stats, settings.
+## Global singleton: locked palette, hit-stop, session-best run stats, settings,
+## jail progress.
 
 # --- Settings (persisted to user://) ---------------------------------
 const _CFG_PATH := "user://settings.cfg"
@@ -68,6 +69,42 @@ func ellipse(rx: float, ry: float, segments := 22) -> PackedVector2Array:
 		var a := TAU * i / segments
 		pts.append(Vector2(cos(a) * rx, sin(a) * ry))
 	return pts
+
+# --- Jail progress (session only) ---------------------------------------
+# Each cell's boss drops a sapphire. It is "carried" until the player sets it
+# on the altar in the jail, then "placed". Four placed opens the gate to boss 5.
+var current_boss := 0     # the cell the current fight came from; 0 = none
+var crystals := {}        # boss id -> "carried" | "placed"
+
+func crystals_placed() -> int:
+	var n := 0
+	for id in [1, 2, 3, 4]:
+		if crystals.get(id, "") == "placed":
+			n += 1
+	return n
+
+# --- Particles -------------------------------------------------------
+## One-shot burst of small squares in a palette colour, parented to `at`.
+func burst(at: Node, pos: Vector2, color: Color, n := 10, speed := 220.0) -> void:
+	var p := CPUParticles2D.new()
+	p.position = pos
+	p.emitting = true
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = n
+	p.lifetime = 0.45
+	p.direction = Vector2.ZERO
+	p.spread = 180.0
+	p.initial_velocity_min = speed * 0.4
+	p.initial_velocity_max = speed
+	p.gravity = Vector2.ZERO
+	p.damping_min = 200.0
+	p.damping_max = 400.0
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 4.0
+	p.color = color
+	at.add_child(p)
+	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
 # --- Session-best tracking (design bible: victory/defeat screen) --------
 var best_time := INF

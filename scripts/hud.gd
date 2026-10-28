@@ -129,7 +129,7 @@ func _draw() -> void:
 			lines.append("best time    %s" % _fmt_time(Game.best_time))
 			lines.append("best hits    %d" % Game.best_hits)
 		lines.append("")
-		lines.append("tap RESTART   ·   press R")
+		lines.append("tap CONTINUE   ·   press R" if _result_win else "tap RESTART   ·   press R")
 		for i in lines.size():
 			draw_string(f, Vector2(cx - 110, vp.get_center().y - 20 + i * 26), lines[i],
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Game.SAPPHIRE_CORE)

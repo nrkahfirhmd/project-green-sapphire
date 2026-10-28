@@ -1,5 +1,9 @@
 extends Node2D
 ## Arena, camera shake, particle bursts, run timer, win/lose, restart.
+## A win drops a sapphire where the boss died; picking it up ends the run, and
+## CONTINUE takes the player back to the jail with it.
+
+signal run_over(win: bool)
 
 const ARENA_MARGIN := Vector2(90, 80)
 # Extra headroom at the top: under the tilted camera the boss body draws about
@@ -7,6 +11,8 @@ const ARENA_MARGIN := Vector2(90, 80)
 const ARENA_TOP := 260.0
 const ARENA_SEED := 11
 const ARENA_FACETS := 10
+const JAIL := "res://scenes/hub.tscn"
+const PICKUP_DIST := 50.0
 
 var arena_rect: Rect2            # bounding box of the arena; scenery lays out around it
 var arena_poly: PackedVector2Array   # the walkable floor itself
@@ -14,6 +20,8 @@ var _shake := 0.0
 var _elapsed := 0.0
 var _hits_taken := 0
 var _over := false
+var _won := false
+var _crystal := Vector2.INF      # dropped sapphire on the floor; INF when there is none
 var _cam_tw: Tween
 
 @onready var camera: Camera2D = $Camera2D
@@ -39,8 +47,14 @@ func _process(delta: float) -> void:
 	if not _over:
 		_elapsed += delta
 
+	if _crystal != Vector2.INF and player.global_position.distance_to(_crystal) < PICKUP_DIST:
+		_take_crystal()
+
 	if Input.is_action_just_pressed("restart"):
-		get_tree().reload_current_scene()
+		if _won:
+			get_tree().change_scene_to_file(JAIL)
+		else:
+			get_tree().reload_current_scene()
 
 	# screen shake decay
 	if _shake > 0.0:
@@ -102,25 +116,7 @@ func punch(zoom_scale := 1.08, t_in := 0.07, t_out := 0.20) -> void:
 
 
 func spawn_burst(pos: Vector2, color: Color, n := 10, speed := 220.0) -> void:
-	var p := CPUParticles2D.new()
-	p.position = pos
-	p.emitting = true
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.amount = n
-	p.lifetime = 0.45
-	p.direction = Vector2.ZERO
-	p.spread = 180.0
-	p.initial_velocity_min = speed * 0.4
-	p.initial_velocity_max = speed
-	p.gravity = Vector2.ZERO
-	p.damping_min = 200.0
-	p.damping_max = 400.0
-	p.scale_amount_min = 2.0
-	p.scale_amount_max = 4.0
-	p.color = color
-	add_child(p)
-	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
+	Game.burst(self, pos, color, n, speed)
 
 
 # --- outcomes --------------------------------------------------------
@@ -134,14 +130,25 @@ func _on_player_died() -> void:
 
 
 func _on_boss_died() -> void:
-	_finish(true)
 	punch(1.2, 0.15, 0.5)
+	_crystal = boss.global_position
+
+
+func _take_crystal() -> void:
+	spawn_burst(_crystal, Game.PALE_JADE, 24, 320.0)
+	add_shake(10.0)
+	if Game.current_boss > 0:
+		Game.crystals[Game.current_boss] = "carried"
+	_crystal = Vector2.INF
+	_finish(true)
 
 
 func _finish(win: bool) -> void:
 	if _over:
 		return
 	_over = true
+	_won = win
+	run_over.emit(win)
 	Game.hit_stop(0.15)
 	var hud := $UI/HUD
 	Game.record_run(_elapsed, _hits_taken)
@@ -154,3 +161,17 @@ func _draw() -> void:
 	# darken; still only the two locked greens, mixed.
 	draw_colored_polygon(arena_poly, Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13))
 	draw_polyline(arena_poly + PackedVector2Array([arena_poly[0]]), Color(Game.SAPPHIRE_CORE, 0.5), 2.0)
+
+	# the dropped sapphire: a floating gem over its shadow. Its lit face is Pale
+	# Jade because it is a "look now" moment -- the one thing to go and get.
+	if _crystal != Vector2.INF:
+		var bob := sin(_elapsed * 3.0) * 5.0
+		draw_set_transform(_crystal)
+		draw_colored_polygon(Game.ellipse(16, 5), Color(Game.DEEP_MOSS, 0.6))
+		var top := Vector2(0, -58 + bob)
+		var mid := -36.0 + bob
+		var bot := Vector2(0, -14 + bob)
+		draw_colored_polygon(PackedVector2Array([top, Vector2(-13, mid), bot]), Game.SAPPHIRE_CORE)
+		draw_colored_polygon(PackedVector2Array([top, Vector2(13, mid), bot]),
+			Color(Game.PALE_JADE, 0.6 + 0.4 * sin(_elapsed * 5.0)))
+		draw_set_transform(Vector2.ZERO)

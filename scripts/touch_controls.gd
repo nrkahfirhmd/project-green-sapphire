@@ -1,6 +1,6 @@
 extends Control
 ## On-screen controls: a floating analog stick on the left, action buttons on
-## the right, and a restart button once the run is over.
+## the right, and a restart (or, after a win, continue) button once the run is over.
 ##
 ## These drive the same input actions the keyboard does, at analog strength, so
 ## Input.get_vector in player.gd reads the stick exactly like a gamepad and
@@ -21,22 +21,22 @@ var _btn_touch := {}            # touch index -> action name
 var _held := {}                 # action -> frames held down
 var _release_q: Array = []
 var _over := false
+var _win := false
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stick_origin = _stick_home()
-	await get_tree().process_frame     # let Main spawn player/boss
-	var pl := get_tree().get_first_node_in_group("player")
-	var bo := get_tree().get_first_node_in_group("boss")
-	if pl:
-		pl.died.connect(_on_run_over)
-	if bo:
-		bo.died.connect(_on_run_over)
+	await get_tree().process_frame     # current_scene isn't set yet during a scene change
+	# the jail has no run to end, so it has no run_over and the controls never close
+	var scene := get_tree().current_scene
+	if scene and scene.has_signal("run_over"):
+		scene.run_over.connect(_on_run_over)
 
 
-func _on_run_over() -> void:
+func _on_run_over(win: bool) -> void:
 	_over = true
+	_win = win
 	_drop_stick()
 	for a in _btn_touch.values():
 		Input.action_release(a)
@@ -54,7 +54,7 @@ func _buttons() -> Array:
 	var s := Game.safe_area(size)
 	if _over:
 		return [{"a": "restart", "p": Vector2(s.get_center().x, s.position.y + s.size.y * 0.72),
-			"r": 62.0, "t": "RESTART"}]
+			"r": 62.0, "t": "CONTINUE" if _win else "RESTART"}]
 	return [
 		{"a": "attack_heavy", "p": s.end - Vector2(160, 300), "r": 70.0, "t": "HEAVY"},
 		{"a": "attack_light", "p": s.end - Vector2(310, 190), "r": 60.0, "t": "LIGHT"},
