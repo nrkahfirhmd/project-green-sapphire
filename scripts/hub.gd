@@ -12,6 +12,12 @@ extends Node2D
 ## Drawn like the arena: palette shapes under the ASCII shader. The jail itself
 ## is drawn once and never redrawn; only torches, the eyes in the cells, the
 ## altar's sapphires, the gate and the dust are redrawn each frame, on _live.
+##
+## Light: moonlight falls through two barred windows high in the back wall
+## and lies across the floor with the bars' shadows in it; torches throw
+## pools of light; the altar glows brighter with every sapphire set. Vines
+## creep down the walls, water stains run under the windows, drips fall into
+## puddles, cobwebs fill the corners, and a vignette closes the edges in.
 
 const FIGHT := "res://scenes/main.tscn"
 const SEED := 3
@@ -34,6 +40,7 @@ const UI := preload("res://scripts/ui/ui.gd")
 const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
 const Pause := preload("res://scripts/ui/pause_menu.gd")
+const P := preload("res://scripts/paint.gd")
 
 var hall: Rect2                  # the walkable floor
 var altar: Vector2
@@ -50,6 +57,11 @@ var _rubble: Array = []          # {pts, a}: rock piles in the hall corners
 var _altar_poly := PackedVector2Array()
 var _altar_rim := PackedVector2Array()
 var _motes: Array = []           # {p, v, ph}
+var _windows: Array = []         # Rect2 barred windows high in the back wall
+var _vines: Array = []           # {pts, leaves}
+var _stains: Array = []          # Rect2 water stains
+var _puddles: Array = []         # {p, r}
+var _runes: Array = []           # PackedVector2Array marks round the altar
 
 var _live: Node2D
 var _t := 0.0
@@ -305,6 +317,44 @@ func _build(vp: Vector2) -> void:
 	for i in MOTES:
 		_motes.append({"p": Vector2(rng.randf() * vp.x, rng.randf() * vp.y),
 			"v": rng.randf_range(6.0, 16.0), "ph": rng.randf() * TAU})
+	_build_dressing(rng, vp)
+
+
+## Windows, vines, stains, puddles and the altar's runes.
+func _build_dressing(rng: RandomNumberGenerator, vp: Vector2) -> void:
+	# two small barred windows between the middle cells and the outer ones
+	for f in [0.27, 0.73]:
+		var x: float = vp.x * f
+		if not _near_cell(Vector2(x, 70.0), 10.0):
+			var w := Rect2(x - 34.0, 40.0, 68.0, 54.0)
+			_windows.append(w)
+			_stains.append(Rect2(x - 20.0, 94.0, 40.0, rng.randf_range(80.0, 140.0)))
+			_pilasters = _pilasters.filter(func(pl: Rect2) -> bool: return not pl.grow(12.0).intersects(w))
+	for i in 9:
+		var x := rng.randf_range(0.0, vp.x)
+		if _near_cell(Vector2(x, 80.0), 20.0):
+			continue
+		var pts := PackedVector2Array()
+		var leaves := PackedVector2Array()
+		var p := Vector2(x, 0.0)
+		var drop := rng.randf_range(90.0, WALL_TOP - 30.0)
+		while p.y < drop:
+			pts.append(p)
+			p += Vector2(rng.randf_range(-6.0, 6.0), rng.randf_range(10.0, 16.0))
+			if rng.randf() < 0.45:
+				leaves.append(p)
+		_vines.append({"pts": pts, "leaves": leaves})
+	for i in 4:
+		var q := Vector2(rng.randf_range(hall.position.x + 80.0, hall.end.x - 80.0), rng.randf_range(hall.position.y + 60.0, hall.end.y - 40.0))
+		if q.distance_to(altar) > ALTAR_R * 2.4:
+			_puddles.append({"p": q, "r": rng.randf_range(30.0, 56.0)})
+	for i in 24:
+		var a := TAU * i / 24.0
+		var c := altar + Vector2(cos(a), sin(a) * 0.7) * (ALTAR_R * 1.62)
+		var mark := PackedVector2Array()
+		for k in 3:
+			mark.append(c + Vector2(rng.randf_range(-6.0, 6.0), rng.randf_range(-5.0, 5.0)))
+		_runes.append(mark)
 
 
 ## Brick courses filling `r`: rows of height `h`, brick widths in `w`.
@@ -335,6 +385,24 @@ func _draw() -> void:
 	var vp := get_viewport_rect().size
 	for b in _bricks:
 		draw_rect(b.r, Color(c, b.a))
+	# the back wall falls into shadow towards the top
+	P.vband(self, Rect2(0, 0, vp.x, WALL_TOP * 0.6), 0.6, 0.0, Game.DEEP_MOSS)
+	for s in _stains:
+		P.gradient(self, PackedVector2Array([s.position, Vector2(s.end.x, s.position.y), Vector2(s.end.x - 8, s.end.y), Vector2(s.position.x + 8, s.end.y)]),
+			s.position, Vector2(s.position.x, s.end.y), 0.6, 0.0, Game.DEEP_MOSS)
+	for w in _windows:
+		draw_rect(w.grow(8), Color(c, 0.4))
+		draw_rect(w, Game.DEEP_MOSS)
+		P.vband(self, w, 0.36, 0.14)
+		var bx: float = w.position.x + 11.0
+		while bx < w.end.x:
+			draw_line(Vector2(bx, w.position.y), Vector2(bx, w.end.y), Game.DEEP_MOSS, 5.0)
+			bx += 15.0
+		draw_rect(Rect2(w.position.x - 12, w.end.y + 6, w.size.x + 24, 8), Color(c, 0.46))
+	for v in _vines:
+		draw_polyline(v.pts, Color(c, 0.36), 2.0)
+		for lf in v.leaves:
+			draw_colored_polygon(PackedVector2Array([lf, lf + Vector2(6, -3), lf + Vector2(9, 2), lf + Vector2(4, 4)]), Color(c, 0.42))
 	for pl in _pilasters:
 		draw_rect(pl, Game.DEEP_MOSS)
 		draw_rect(pl, Color(c, 0.3))
@@ -360,6 +428,38 @@ func _draw() -> void:
 		draw_line(s + Vector2(0, 8), s + Vector2(0, 30), Color(c, 0.5), 4.0)
 	for st in _straw:
 		draw_polyline(st, Color(c, 0.3), 2.0)
+	# torchlight pools on the wall and the floor below each torch
+	for s in _sconces:
+		P.glow(self, s, 130.0, 0.14)
+		P.glow(self, Vector2(s.x, WALL_TOP + 30.0), 120.0, 0.08, 0.35)
+	# moonlight through the windows, with the bars' shadows lying in it
+	for w in _windows:
+		var drift := 260.0 if w.get_center().x < vp.x * 0.5 else -260.0
+		var foot_y := WALL_TOP + 300.0
+		var b0 := Vector2(w.position.x + drift - 40.0, foot_y)
+		var b1 := Vector2(w.end.x + drift + 40.0, foot_y)
+		P.shaft(self, w.position + Vector2(0, w.size.y), w.end, b0, b1, 0.18)
+		var bx: float = w.position.x + 11.0
+		while bx < w.end.x:
+			var f: float = (bx - w.position.x) / w.size.x
+			# the bars' shadows only show where the light lands, on the floor
+			var top := Vector2(bx, w.end.y)
+			var bot := b0.lerp(b1, f)
+			draw_line(top.lerp(bot, (WALL_TOP - top.y) / (bot.y - top.y)), bot, Color(Game.DEEP_MOSS, 0.5), 4.0)
+			bx += 15.0
+	for pd in _puddles:
+		var e := Game.ellipse(float(pd.r), float(pd.r) * 0.32, 20)
+		draw_colored_polygon(Transform2D(0.0, pd.p) * e, Color(Game.DEEP_MOSS, 0.8))
+		draw_polyline(Transform2D(0.0, pd.p) * e + PackedVector2Array([pd.p + e[0]]), Color(c, 0.3), 2.0)
+		draw_line(pd.p + Vector2(-pd.r * 0.4, -3), pd.p + Vector2(pd.r * 0.1, -3), Color(c, 0.28), 2.0)
+	for r in _runes:
+		draw_polyline(r, Color(c, 0.16), 2.0)
+	# cobwebs in the hall's corners and over the cells
+	P.web(self, Vector2(SIDE, WALL_TOP), 46.0, Vector2(1, 1))
+	P.web(self, Vector2(hall.end.x, WALL_TOP), 46.0, Vector2(-1, 1))
+	for id in [1, 4]:
+		var cr: Rect2 = doors[id].cell
+		P.web(self, cr.position - Vector2(10, 10), 34.0, Vector2(1, 1), 0.26)
 	for d in _drains:
 		draw_rect(d, Color(c, 0.3))
 		for i in 5:
@@ -384,6 +484,7 @@ func _draw() -> void:
 		for k in e.size():
 			e[k] += s
 		draw_colored_polygon(e, Game.DEEP_MOSS)
+	P.vignette(self, vp, 160.0, 0.55)
 
 
 ## A cell: dark interior, a stone jamb, and bars. Open cells keep a gap in the
@@ -454,12 +555,28 @@ func _draw_live() -> void:
 		var cp := player.global_position + Vector2(0, -108.0 + sin(_t * TAU / 1.2) * 6.0)
 		UI.diamond(_live, cp, 20, c)
 
-	# torches
+	# torches, with sparks drifting up
 	for s in _sconces:
-		var h := 16.0 + 4.0 * sin(_t * 11.0 + s.x) + 3.0 * sin(_t * 17.3 + s.x * 0.5)
-		_live.draw_circle(s + Vector2(0, -6), 38.0, Color(c, 0.1))
-		_live.draw_colored_polygon(PackedVector2Array([s + Vector2(0, -h), s + Vector2(6, -3),
-			s + Vector2(0, 2), s + Vector2(-6, -3)]), Color(c, 0.8))
+		P.flame(_live, s + Vector2(0, -2), 18.0, _t, s.x)
+		for k in 2:
+			var u := fposmod(_t * 0.7 + k * 0.5 + s.x * 0.01, 1.0)
+			_live.draw_circle(s + Vector2(sin(_t * 3.0 + k * 3.0) * 6.0, -18.0 - u * 60.0), 1.8, Color(c, 0.7 * (1.0 - u)))
+
+	# the altar's glow grows with every sapphire set on it
+	var lit := Game.crystals_placed()
+	if lit > 0:
+		P.glow(_live, altar + Vector2(0, -20), 140.0 + 30.0 * lit, (0.05 + 0.03 * lit) * (0.85 + 0.15 * sin(_t * 1.6)), 0.7)
+
+	# drips falling into the puddles, ringing out
+	for i in _puddles.size():
+		var pd: Dictionary = _puddles[i]
+		var u := fposmod(_t / 2.6 + i * 0.29, 1.0)
+		if u < 0.2:
+			var f := u / 0.2
+			_live.draw_circle(pd.p + Vector2(4, -120.0 * (1.0 - f * f)), 2.0, Color(c, 0.5))
+		else:
+			var f := (u - 0.2) / 0.8
+			_live.draw_arc(pd.p + Vector2(4, 0), 4.0 + float(pd.r) * 0.7 * f, 0, TAU, 20, Color(c, 0.4 * (1.0 - f)), 1.5)
 
 	# sapphires on the altar
 	for id in _flying:

@@ -10,6 +10,11 @@ extends Node2D
 ## alpha becomes glyph density: below 0.2 a tone comes out as scattered specks
 ## (floor tiles, the far wall), 0.2-0.5 as light '- = +' texture, and only the
 ## crystals go denser. The boss and telegraphs stay the densest things on screen.
+## Light: a crack in the ceiling drops one beam onto a geode of giant prisms
+## behind the boss, and the geode splits it into a fan of fainter rays across
+## the floor. Crystal clusters glow, water drips from the stalactites into
+## splash rings, a still pool lies off the floor, and a vignette closes the
+## edges in.
 ## Laid out from a fixed seed, so the cave is the same every run.
 ##
 ## Performance: the cave is ~1000 polygons, so this node draws it once and
@@ -22,6 +27,7 @@ const SEED := 7
 const MOTES := 70
 const RIM := 18.0          # bevel width around the floor
 const GLIMMER_GROUPS := 3  # crystal layers pulsing out of phase
+const P := preload("res://scripts/paint.gd")
 
 var _far: Array = []       # far-wall columns: {x, w, h}
 var _stal: Array = []      # stalactites: {x, w, len, lean, a}
@@ -39,6 +45,10 @@ var _live: Node2D          # redrawn every frame: dust and vines only
 var _glimmer: Array = []   # one pre-drawn crystal layer per phase group
 var _arena: Rect2
 var _poly: PackedVector2Array
+var _geode: Array = []     # giant prisms behind the boss: {b, w, h, lean}
+var _crack := Vector2.ZERO # where the beam comes through the ceiling
+var _drips: Array = []     # {x, top, floor_y, ph, rate}
+var _pool := Vector2.ZERO  # centre of the still pool off the floor
 
 
 func _ready() -> void:
@@ -54,6 +64,7 @@ func _ready() -> void:
 	_build_wall(rng, vp)
 	_build_floor(rng)
 	_build_ground(rng, vp)
+	_build_light(rng, vp)
 	for i in MOTES:
 		_motes.append({"p": Vector2(rng.randf() * vp.x, rng.randf() * vp.y),
 			"v": rng.randf_range(6.0, 16.0), "ph": rng.randf() * TAU})
@@ -66,6 +77,10 @@ func _ready() -> void:
 	_live = Node2D.new()
 	_live.draw.connect(_draw_live)
 	add_child(_live)
+	# the vignette sits over everything, crystals and dust included, drawn once
+	var front := Node2D.new()
+	front.draw.connect(func(): P.vignette(front, vp, 150.0, 0.55))
+	add_child(front)
 	queue_redraw()   # the one and only full draw
 
 
@@ -209,6 +224,26 @@ func _build_ground(rng: RandomNumberGenerator, vp: Vector2) -> void:
 	_ground.sort_custom(func(a, b): return a.y < b.y)
 
 
+## The geode, the beam's way in, the drips and the pool.
+func _build_light(rng: RandomNumberGenerator, vp: Vector2) -> void:
+	var foot := _arena.position.y
+	_crack = Vector2(vp.x * 0.5 + 40.0, 0.0)
+	# giant prisms fanned out behind the boss, tallest in the middle
+	for i in 9:
+		var f := (i - 4) / 4.0
+		_geode.append({"b": Vector2(vp.x * 0.5 + f * 150.0 + rng.randf_range(-10.0, 10.0), foot - 6.0),
+			"w": rng.randf_range(18.0, 30.0), "h": lerpf(190.0, 90.0, absf(f)) + rng.randf_range(-15.0, 15.0),
+			"lean": f * 0.32 + rng.randf_range(-0.06, 0.06)})
+	_geode.sort_custom(func(a, b): return a.h < b.h)
+	# drips fall from a few of the longer stalactites to the ground off the floor
+	for s in _stal:
+		if float(s.len) > 70.0 and rng.randf() < 0.5:
+			var x := float(s.x) + float(s.lean)
+			var land := foot + rng.randf_range(-4.0, 10.0)
+			_drips.append({"x": x, "top": float(s.len), "floor_y": land, "ph": rng.randf() * 10.0, "rate": rng.randf_range(2.2, 4.0)})
+	_pool = Vector2(vp.x * 0.1, vp.y - 70.0)
+
+
 func _rock(rng: RandomNumberGenerator, c: Vector2, r: float) -> Dictionary:
 	var pts := PackedVector2Array()
 	var cap := PackedVector2Array()
@@ -252,6 +287,7 @@ func _draw() -> void:
 		var tip := Vector2(x + float(s.lean), float(s.len))
 		draw_colored_polygon(PackedVector2Array([Vector2(x - w * 0.5, 0), Vector2(x, 0), tip]), Color(base, float(s.a) + 0.08))
 		draw_colored_polygon(PackedVector2Array([Vector2(x, 0), Vector2(x + w * 0.5, 0), tip]), Color(base, s.a))
+	P.vband(self, Rect2(0, 0, top_w, foot * 0.5), 0.55, 0.0, Game.DEEP_MOSS)
 
 	# near wall: front face, a lit strip on the left edge, a hex cap on top, and
 	# Deep Moss seams between columns so each one reads as its own prism
@@ -272,6 +308,7 @@ func _draw() -> void:
 		draw_colored_polygon(cap, Color(base, a + 0.22))
 	for v in _veins:
 		draw_polyline(v, Color(base, 0.45), 2.0)
+	_draw_geode()
 
 	# the floor: a bevelled gem facet per edge, shaded alternately so the rim
 	# reads as cut stone, then the seams darkened and the flagstones laid on top
@@ -287,11 +324,30 @@ func _draw() -> void:
 		draw_colored_polygon(t.pts, Color(base, t.a))
 	for c in _cracks:
 		draw_polyline(c, Color(base, 0.28), 2.0)
+	# the geode splits the beam: a fan of faint rays across the floor
+	var g0 := Vector2(get_viewport_rect().size.x * 0.5, foot - 110.0)
+	for k in 5:
+		var ang := lerpf(-0.95, 0.95, k / 4.0)
+		var d := Vector2(sin(ang), cos(ang))
+		var reach := 620.0
+		P.shaft(self, g0 + d.orthogonal() * 6.0, g0 - d.orthogonal() * 6.0,
+			g0 + d * reach + d.orthogonal() * 70.0, g0 + d * reach - d.orthogonal() * 70.0, 0.09)
 	for p in _pebbles:
 		var c: Vector2 = p.c
 		var s: float = p.s
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s, 0),
 			c + Vector2(0, s * 0.6), c + Vector2(-s, 0)]), Color(base, 0.32))
+
+	# the still pool: a dark oval, a lit rim, a faint reflection of the light
+	draw_colored_polygon(Transform2D(0.0, _pool) * Game.ellipse(150, 36, 32), Game.DEEP_MOSS)
+	P.glow(self, _pool, 140.0, 0.12, 0.24)
+	draw_polyline(Transform2D(0.0, _pool) * Game.ellipse(150, 36, 32), Color(base, 0.4), 2.0)
+	for k in 3:
+		draw_line(_pool + Vector2(-60 + k * 40, -6 + k * 6), _pool + Vector2(-20 + k * 40, -6 + k * 6), Color(base, 0.3), 2.0)
+	# crystals light the ground around them
+	for g in _ground:
+		if g.kind == "shard" and g.grp == 0:
+			P.glow(self, g.b - Vector2(0, float(g.h) * 0.3), float(g.h) * 0.9, 0.1)
 
 	# ground scenery, back to front (crystals are on the glimmer layers)
 	for g in _ground:
@@ -307,6 +363,37 @@ func _draw() -> void:
 				draw_colored_polygon(PackedVector2Array([b - Vector2(w, 0), b, tip]), Color(base, float(g.a) + 0.1))
 				draw_colored_polygon(PackedVector2Array([b, b + Vector2(w, 0), tip]), Color(base, g.a))
 				draw_line(b - Vector2(w, 0), b + Vector2(w, 0), Game.DEEP_MOSS, 2.0)
+
+
+## The geode: a crack of light in the ceiling, the beam falling through the
+## dark, and the giant prisms it lands on, each with a lit face and a dark one.
+func _draw_geode() -> void:
+	var base := Game.SAPPHIRE_CORE
+	var foot := _arena.position.y
+	var g0 := Vector2(get_viewport_rect().size.x * 0.5, foot - 110.0)
+	# the crack and the beam
+	draw_polyline(PackedVector2Array([_crack + Vector2(-50, 0), _crack + Vector2(-20, 8), _crack + Vector2(4, 4),
+		_crack + Vector2(30, 10), _crack + Vector2(56, 0)]), Color(base, 0.6), 3.0)
+	P.shaft(self, _crack + Vector2(-34, 4), _crack + Vector2(34, 4), g0 + Vector2(-70, 0), g0 + Vector2(70, 0), 0.2)
+	P.glow(self, g0, 230.0, 0.2)
+	for g in _geode:
+		var b: Vector2 = g.b
+		var w: float = g.w
+		var h: float = g.h
+		var d := Vector2(sin(g.lean), -cos(g.lean))
+		var n := d.orthogonal()
+		var tip := b + d * h
+		var shoulder := b + d * (h - w * 1.1)
+		draw_colored_polygon(PackedVector2Array([b - n * w, b, tip, shoulder - n * w]), Color(base, 0.62))
+		draw_colored_polygon(PackedVector2Array([b, b + n * w, shoulder + n * w, tip]), Color(base, 0.36))
+		draw_line(b, tip, Game.DEEP_MOSS, 2.0)
+		draw_polyline(PackedVector2Array([b - n * w, shoulder - n * w, tip, shoulder + n * w, b + n * w]), Game.DEEP_MOSS, 2.0)
+	# the geode's broken shell round its foot
+	for k in 7:
+		var f := (k - 3) / 3.0
+		var c := Vector2(g0.x + f * 190.0, foot - 4.0 - (1.0 - absf(f)) * 6.0)
+		draw_colored_polygon(Transform2D(0.0, c) * Game.ellipse(34, 14, 8), Color(base, 0.34))
+		draw_polyline(Transform2D(0.0, c) * Game.ellipse(34, 14, 8), Game.DEEP_MOSS, 2.0)
 
 
 ## Crystals in one glimmer group, drawn once onto that group's layer. They
@@ -342,6 +429,21 @@ func _draw_live() -> void:
 					Color(base, 0.42))
 			i += 4.0
 		_live.draw_polyline(pts, Color(base, 0.36), 2.0)
+
+	# drips: a bead swells at the tip, falls, and rings out where it lands
+	for d in _drips:
+		var period: float = d.rate
+		var u := fposmod(_t + float(d.ph), period) / period
+		var x: float = d.x
+		var fall_y: float = d.floor_y - float(d.top)
+		if u < 0.6:
+			_live.draw_circle(Vector2(x, float(d.top) + 2.0), 1.5 + 2.0 * u / 0.6, Color(base, 0.55))
+		elif u < 0.75:
+			var f := (u - 0.6) / 0.15
+			_live.draw_circle(Vector2(x, float(d.top) + fall_y * f * f), 2.5, Color(base, 0.6))
+		else:
+			var f := (u - 0.75) / 0.25
+			_live.draw_arc(Vector2(x, d.floor_y), 4.0 + 18.0 * f, PI, TAU, 12, Color(base, 0.45 * (1.0 - f)), 2.0)
 
 	# dust rising through the cave, swaying a little
 	for m in _motes:
