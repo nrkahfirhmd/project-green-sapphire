@@ -16,6 +16,7 @@ const JAIL := "res://scenes/hub.tscn"
 ## without a cell (from the editor or a check) is cell III's.
 const BOSSES := {
 	1: {"name": "THE TURNKEY", "boss": "res://scripts/bosses/turnkey.gd", "env": "res://scripts/envs/treasure_env.gd", "floor": "octagon", "radius": 28.0},
+	2: {"name": "THE PENDULUM", "boss": "res://scripts/bosses/pendulum.gd", "env": "res://scripts/envs/library_env.gd", "floor": "hall", "radius": 0.0},
 	3: {"name": "THE PRISM", "boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
 }
 const DEFAULT_CELL := 3
