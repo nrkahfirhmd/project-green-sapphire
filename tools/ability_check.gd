@@ -1,7 +1,8 @@
 extends Node
 ## Smoke check for the rapier kit: the thrusts reach what they claim, the
 ## ricochet bounces and stays on the floor, the blink teleports along facing
-## and cuts through the boss, and the ultimate lands all six cuts.
+## and cuts through the boss, and the ultimate lands all six cuts, through
+## the Turnkey's shield too.
 ##
 ##   /Applications/Godot.app/Contents/MacOS/Godot --path . tools/ability_check.tscn
 
@@ -104,9 +105,11 @@ func _blink() -> void:
 
 
 func _ultimate() -> void:
-	var f := await _fight(3)
+	# the Turnkey's core is shielded while idle; the ultimate cuts through anyway
+	var f := await _fight(1)
 	var p: Node = f[1]
 	var b: Node = f[2]
+	assert(not b._can_be_hit(), "turnkey should start shielded")
 	var hp: int = b.hp
 	p.ult_charge = p.ULT_COST
 	p.global_position = b.global_position + Vector2(0, 200)

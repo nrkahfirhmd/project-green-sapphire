@@ -6,9 +6,10 @@ extends Control
 ## bands on all four screen edges; the boss-intro band.
 ## Built from Controls: the result screens, so their buttons take touches.
 ##
-## Boss health is shown as two bars, one per phase: the current bar drains,
-## and the spare square empties when phase 1's bar runs out and the bar
-## refills. Damage drains over 0.18 s with a Core trail following after 0.3 s.
+## Boss health is shown as one bar per phase (the boss's phase thresholds
+## split it): the current bar drains, and a spare square empties each time a
+## phase's bar runs out and the bar refills for the next. Damage drains over
+## 0.18 s with a Core trail following after 0.3 s.
 
 signal intro_released            # the intro has started fading; play can begin
 signal continue_pressed
@@ -20,7 +21,6 @@ const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
 
 const BAR := Vector2(560, 22)
-const BARS := 2                  # one health bar per phase
 
 var cell := 3
 var _p_hp := 4
@@ -29,6 +29,7 @@ var _lost := -1                  # index of the heart that was just lost
 var _lost_t := 0.0               # 0..0.35 s of its flash
 var _b_hp := 12
 var _b_max := 12
+var _marks: Array = []           # the boss's phase thresholds, high to low
 var _shown := 1.0                # fill of the current bar, 0..1, tweened
 var _trail := 1.0                # the trailing chunk behind it
 var _spare_pop := 0.0            # 1 -> 0 as an emptied spare square settles
@@ -49,6 +50,7 @@ func _ready() -> void:
 	if player:
 		player.health_changed.connect(_on_p_health)
 	if boss:
+		_marks = boss.phases() if boss.has_method("phases") else [boss.max_hp / 2] if "max_hp" in boss else []
 		boss.health_changed.connect(_on_b_health)
 
 
@@ -60,18 +62,35 @@ func _on_p_health(cur: int, mx: int) -> void:
 	_p_max = mx
 
 
-func _per_bar() -> float:
-	return float(_b_max) / BARS
+## Bar edges, high to low: max, each phase threshold, 0.
+func _edges() -> Array:
+	var e: Array = [_b_max]
+	e.append_array(_marks if not _marks.is_empty() else [_b_max / 2])
+	e.append(0)
+	return e
 
 
+func _bars() -> int:
+	return _edges().size() - 1
+
+
+## How full the bar holding `hp` is.
 func _bar_fill(hp: int) -> float:
-	var in_bar := hp - _per_bar() * _spares(hp)
-	return clampf(in_bar / _per_bar(), 0.0, 1.0)
+	var e := _edges()
+	var i := _bars() - 1 - _spares(hp)
+	var hi := float(e[i])
+	var lo := float(e[i + 1])
+	return clampf((hp - lo) / maxf(hi - lo, 1.0), 0.0, 1.0)
 
 
-## Spare bars still full behind the current one.
+## Full bars still waiting behind the one that holds `hp`.
 func _spares(hp: int) -> int:
-	return clampi(ceili(hp / _per_bar()) - 1, 0, BARS - 1)
+	var e := _edges()
+	var n := 0
+	for k in range(1, e.size() - 1):
+		if hp > int(e[k]):
+			n += 1
+	return n
 
 
 func _on_b_health(cur: int, mx: int) -> void:
@@ -295,7 +314,7 @@ func _draw() -> void:
 		_round(Rect2(bar.position, Vector2(BAR.x * _shown, BAR.y)), UI.JADE)
 	_round(bar, Color(0, 0, 0, 0), c)
 	var spares := _spares(_b_hp)
-	for i in BARS - 1:
+	for i in _bars() - 1:
 		var sq := Rect2(Vector2(bar.end.x - 24.0 - i * 34.0, bar.end.y + 8.0), Vector2(24, 24))
 		var full := i < spares
 		var pop := 1.0 + 0.3 * _spare_pop if (i == spares and _spare_pop > 0.0) else 1.0

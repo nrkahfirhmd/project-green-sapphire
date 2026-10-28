@@ -16,6 +16,7 @@ signal telegraph_started(kind: String)
 var max_hp := 12
 var hp := 12
 var phase := 1
+var phase_hp: Array = []     # health at which phases 2, 3... start; empty = phase 2 at half
 var dead := false
 var eye_t := 0.0             # 0..1 countdown to the next attack
 var player: Node2D
@@ -74,14 +75,21 @@ func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	_burst(from_pos.lerp(global_position, 0.7), Game.SAPPHIRE_CORE, 12)
 	_on_hit(amount)
 	health_changed.emit(hp, max_hp)
-	if phase == 1 and hp <= max_hp / 2 and hp > 0:
-		phase = 2
-		phase_changed.emit(2)
+	var marks := phases()
+	while phase - 1 < marks.size() and hp <= int(marks[phase - 1]) and hp > 0:
+		phase += 1
+		phase_changed.emit(phase)
 		_request_shake(18.0)
 		Game.hit_stop(0.12)
 	if hp <= 0:
 		dead = true
 		died.emit()
+
+
+## Health thresholds for each new phase, high to low. The HUD draws one bar
+## per phase from these.
+func phases() -> Array:
+	return phase_hp if not phase_hp.is_empty() else [max_hp / 2]
 
 
 func telegraph(kind: String) -> void:

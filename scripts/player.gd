@@ -281,7 +281,9 @@ func _resolve_hit(a: Dictionary) -> void:
 	if not _boss_alive():
 		return
 	var start := global_position - facing * float(a["lunge"])   # from where the lunge began
-	if not _on_line(start, global_position + facing * float(a["reach"]), float(a["width"])):
+	var end := global_position + facing * float(a["reach"])
+	_thrust_parts(start, end, float(a["width"]))
+	if not _on_line(start, end, float(a["width"])):
 		return
 	_hit_boss(a["dmg"], global_position)
 	Game.hit_stop(a["hitstop"])
@@ -303,6 +305,13 @@ func _boss_alive() -> bool:
 func _on_line(a: Vector2, b: Vector2, width: float) -> bool:
 	var q := Geometry2D.get_closest_point_to_segment(boss.global_position, a, b)
 	return q.distance_to(boss.global_position) <= width * 0.5 + BOSS_R
+
+
+## Some bosses have parts a thrust can strike besides the body (the Turnkey's
+## keys); they decide what that does.
+func _thrust_parts(a: Vector2, b: Vector2, width: float) -> void:
+	if boss.has_method("on_thrust"):
+		boss.on_thrust(a, b, width)
 
 
 ## Damage the boss; whatever actually lands charges the ultimate.
@@ -370,6 +379,14 @@ func _do_ricochet(delta: float) -> void:
 		facing = _move_dir
 		_request_shake(5.0)
 		_burst(c, Game.SAPPHIRE_CORE, 8)
+	elif _boss_alive() and boss.has_method("deflects"):
+		# a boss's solid parts (the Turnkey's key barrier) bounce it too
+		var n: Vector2 = boss.deflects(c, 24.0)
+		if n != Vector2.ZERO and _move_dir.dot(n) < 0.0:
+			_move_dir = _move_dir.bounce(n)
+			facing = _move_dir
+			_request_shake(5.0)
+			_burst(c, Game.SAPPHIRE_CORE, 8)
 	global_position = c
 	if _rehit <= 0.0 and _boss_alive() and global_position.distance_to(boss.global_position) < BOSS_R + 24.0:
 		_hit_boss(RICOCHET_DMG, global_position)
@@ -430,6 +447,8 @@ func _do_blink(delta: float) -> void:
 		var a := global_position
 		var b := _floor_point(a + _move_dir * BLINK_DIST)
 		_teleport(a, b)
+		if _boss_alive():
+			_thrust_parts(a, b, BLINK_WIDTH)
 		if _boss_alive() and _on_line(a, b, BLINK_WIDTH):
 			_hit_boss(BLINK_DMG, a)
 			Game.hit_stop(0.07)
