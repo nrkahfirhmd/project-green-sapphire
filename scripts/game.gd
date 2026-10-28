@@ -1,6 +1,6 @@
 extends Node
-## Global singleton: locked palette, hit-stop, session-best run stats, settings,
-## jail progress.
+## Global singleton: locked palette, hit-stop, settings, jail progress, each
+## cell's boss name and the session's best runs.
 
 # --- Settings (persisted to user://) ---------------------------------
 const _CFG_PATH := "user://settings.cfg"
@@ -43,13 +43,20 @@ const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
 const SAPPHIRE_CORE := Color("69A062") # player, muted text, eye mid-charge
 const PALE_JADE := Color("BBE2B6")     # boss body, blade, EVERY telegraph flash
 
+## Off-device, the safe area of an iPhone 15/16 Pro in landscape (59 pt sides,
+## 21 pt bottom), in canvas units: desktop runs and the editor then place the
+## UI exactly where the phone will. The notch can be on either side, so both
+## sides are inset.
+const SIM_INSET_SIDE := 135.0
+const SIM_INSET_BOTTOM := 48.0
+
 ## Safe-area rect in viewport units. On iOS the notch and the home indicator
 ## cover the screen edges, which is exactly where the touch controls and the
-## HUD readouts want to sit. Off-device this is simply the whole viewport.
+## HUD readouts want to sit.
 func safe_area(viewport_size: Vector2) -> Rect2:
 	var full := Rect2(Vector2.ZERO, viewport_size)
 	if not OS.has_feature("mobile"):
-		return full
+		return Rect2(SIM_INSET_SIDE, 0.0, viewport_size.x - SIM_INSET_SIDE * 2.0, viewport_size.y - SIM_INSET_BOTTOM)
 	var win := Vector2(DisplayServer.window_get_size())
 	if win.x <= 0.0 or win.y <= 0.0:
 		return full
@@ -106,17 +113,32 @@ func burst(at: Node, pos: Vector2, color: Color, n := 10, speed := 220.0) -> voi
 	at.add_child(p)
 	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
-# --- Session-best tracking (design bible: victory/defeat screen) --------
-var best_time := INF
-var best_hits := 999
-var has_best := false
+# --- Cells, and the result screen's bests --------------------------------
+const NUMERALS := ["", "I", "II", "III", "IV", "V"]
+const BOSS_NAMES := {1: "THE TURNKEY", 2: "THE PENDULUM", 3: "THE PRISM", 4: "THE HOURGLASS", 5: "THE MIRROR"}
 
-func record_run(elapsed: float, hits: int) -> void:
-	if not has_best or elapsed < best_time:
-		best_time = elapsed
-	if not has_best or hits < best_hits:
-		best_hits = hits
-	has_best = true
+var bests := {}           # cell -> {"time": float, "hits": int}, wins only, this session
+var total_time := 0.0     # summed over won fights, for the ending
+var total_hits := 0
+
+
+## Records a won fight and says whether it set a new best time or hit count.
+func record_win(cell: int, elapsed: float, hits: int) -> Dictionary:
+	var prev: Dictionary = bests.get(cell, {})
+	var new_time := prev.is_empty() or elapsed < float(prev["time"])
+	var new_hits := prev.is_empty() or hits < int(prev["hits"])
+	bests[cell] = {"time": elapsed if new_time else prev["time"], "hits": hits if new_hits else prev["hits"]}
+	total_time += elapsed
+	total_hits += hits
+	return {"new_time": new_time and not prev.is_empty(), "new_hits": new_hits and not prev.is_empty()}
+
+
+## A fresh run of the jail: sapphires and totals cleared, bests kept.
+func new_game() -> void:
+	crystals.clear()
+	current_boss = 0
+	total_time = 0.0
+	total_hits = 0
 
 # --- Hit-stop: brief global freeze on impact (~0.05-0.1s) --------------
 var _hitstop_id := 0

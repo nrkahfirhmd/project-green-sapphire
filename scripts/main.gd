@@ -1,7 +1,9 @@
 extends Node2D
 ## Arena, camera shake, particle bursts, run timer, win/lose, restart.
-## A win drops a sapphire where the boss died; picking it up ends the run, and
-## CONTINUE takes the player back to the jail with it.
+## A fight opens on the boss-intro card with input locked until it fades. A
+## win drops a sapphire where the boss died; picking it up ends the run, and
+## CONTINUE takes the player back to the jail with it. Esc or the pause
+## button opens the pause sheet.
 
 signal run_over(win: bool)
 
@@ -15,19 +17,24 @@ const JAIL := "res://scenes/hub.tscn"
 ## Which boss, scenery and floor shape each cell's fight uses. A fight started
 ## without a cell (from the editor or a check) is cell III's.
 const BOSSES := {
-	1: {"name": "THE TURNKEY", "boss": "res://scripts/bosses/turnkey.gd", "env": "res://scripts/envs/treasure_env.gd", "floor": "octagon", "radius": 28.0},
-	2: {"name": "THE PENDULUM", "boss": "res://scripts/bosses/pendulum.gd", "env": "res://scripts/envs/library_env.gd", "floor": "hall", "radius": 0.0},
-	3: {"name": "THE PRISM", "boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
-	4: {"name": "THE HOURGLASS", "boss": "res://scripts/bosses/hourglass.gd", "env": "res://scripts/envs/desert_env.gd", "floor": "round", "radius": 40.0},
-	5: {"name": "THE MIRROR", "boss": "res://scripts/bosses/mirror.gd", "env": "res://scripts/envs/mind_env.gd", "floor": "circle", "radius": 30.0},
+	1: {"boss": "res://scripts/bosses/turnkey.gd", "env": "res://scripts/envs/treasure_env.gd", "floor": "octagon", "radius": 28.0},
+	2: {"boss": "res://scripts/bosses/pendulum.gd", "env": "res://scripts/envs/library_env.gd", "floor": "hall", "radius": 0.0},
+	3: {"boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
+	4: {"boss": "res://scripts/bosses/hourglass.gd", "env": "res://scripts/envs/desert_env.gd", "floor": "round", "radius": 40.0},
+	5: {"boss": "res://scripts/bosses/mirror.gd", "env": "res://scripts/envs/mind_env.gd", "floor": "circle", "radius": 30.0},
 }
 const DEFAULT_CELL := 3
 const PICKUP_DIST := 50.0
+const Pause := preload("res://scripts/ui/pause_menu.gd")
+const UI := preload("res://scripts/ui/ui.gd")
 
 var arena_rect: Rect2            # bounding box of the arena; scenery lays out around it
 var arena_poly: PackedVector2Array   # the walkable floor itself
 var floor_scale := 1.0           # the Hourglass's sand shrinks the floor toward its centre
 var boss: CharacterBody2D
+var cell := DEFAULT_CELL
+var _playing := false            # false until the boss intro releases input
+var _pause: Control
 var _shake := 0.0
 var _elapsed := 0.0
 var _hits_taken := 0
@@ -47,10 +54,27 @@ func _ready() -> void:
 		vp.x - ARENA_MARGIN.x * 2.0, vp.y - ARENA_TOP - ARENA_MARGIN.y)
 	camera.position = vp * 0.5
 	player.position.x = vp.x * 0.5
-	var spec: Dictionary = BOSSES.get(Game.current_boss, BOSSES[DEFAULT_CELL])
+	cell = Game.current_boss if BOSSES.has(Game.current_boss) else DEFAULT_CELL
+	var spec: Dictionary = BOSSES[cell]
 	_build_arena_poly(spec["floor"])
 	_spawn(spec)
-	$UI/HUD.boss_name = spec["name"]
+
+	var hud := $UI/HUD
+	hud.cell = cell
+	hud.continue_pressed.connect(_to_jail)
+	hud.jail_pressed.connect(_to_jail)
+	hud.retry_pressed.connect(func(): get_tree().reload_current_scene())
+	hud.intro_released.connect(_release)
+	_pause = Pause.new()
+	_pause.setup("BACK TO JAIL", JAIL, func():
+		return "%s · %s · %s" % [Game.NUMERALS[cell], Game.BOSS_NAMES[cell], UI.fmt_time(_elapsed)])
+	$UI.add_child(_pause)
+
+	# hold everything still behind the intro card
+	player.set_physics_process(false)
+	boss.set_physics_process(false)
+	$UI/TouchControls.locked = true
+	hud.play_intro()
 
 	player.hit_taken.connect(func(): _hits_taken += 1)
 	player.died.connect(_on_player_died)
@@ -58,8 +82,20 @@ func _ready() -> void:
 	boss.phase_changed.connect(_on_phase_changed)
 
 
+func _release() -> void:
+	_playing = true
+	player.set_physics_process(true)
+	boss.set_physics_process(true)
+	$UI/TouchControls.locked = false
+	$UI/HUD.timing = true
+
+
+func _to_jail() -> void:
+	get_tree().change_scene_to_file(JAIL)
+
+
 func _process(delta: float) -> void:
-	if not _over:
+	if _playing and not _over:
 		_elapsed += delta
 
 	if _crystal != Vector2.INF and player.global_position.distance_to(_crystal) < PICKUP_DIST:
@@ -67,7 +103,7 @@ func _process(delta: float) -> void:
 
 	if Input.is_action_just_pressed("restart"):
 		if _won:
-			get_tree().change_scene_to_file(JAIL)
+			_to_jail()
 		else:
 			get_tree().reload_current_scene()
 
@@ -218,10 +254,10 @@ func _finish(win: bool) -> void:
 	_over = true
 	_won = win
 	run_over.emit(win)
+	_pause.enabled = false
 	Game.hit_stop(0.15)
-	var hud := $UI/HUD
-	Game.record_run(_elapsed, _hits_taken)
-	hud.show_result(win, _elapsed, _hits_taken)
+	var flags := Game.record_win(cell, _elapsed, _hits_taken) if win else {}
+	$UI/HUD.show_result(win, _elapsed, _hits_taken, flags)
 
 
 func _draw() -> void:
@@ -231,16 +267,14 @@ func _draw() -> void:
 	draw_colored_polygon(arena_poly, Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13))
 	draw_polyline(arena_poly + PackedVector2Array([arena_poly[0]]), Color(Game.SAPPHIRE_CORE, 0.5), 2.0)
 
-	# the dropped sapphire: a floating gem over its shadow. Its lit face is Pale
-	# Jade because it is a "look now" moment -- the one thing to go and get.
+	# the dropped sapphire: a Pale Jade diamond pulsing 1 <-> 1.25 every 0.8 s
+	# over its shadow. Jade because it is a "look now" moment, the one thing
+	# to go and get.
 	if _crystal != Vector2.INF:
-		var bob := sin(_elapsed * 3.0) * 5.0
+		var k := 1.0 + 0.125 * (1.0 - cos(TAU * Time.get_ticks_msec() / 800.0))
+		var h := 20.0 * k
+		var c := _crystal + Vector2(0, -38)
 		draw_set_transform(_crystal)
 		draw_colored_polygon(Game.ellipse(16, 5), Color(Game.DEEP_MOSS, 0.6))
-		var top := Vector2(0, -58 + bob)
-		var mid := -36.0 + bob
-		var bot := Vector2(0, -14 + bob)
-		draw_colored_polygon(PackedVector2Array([top, Vector2(-13, mid), bot]), Game.SAPPHIRE_CORE)
-		draw_colored_polygon(PackedVector2Array([top, Vector2(13, mid), bot]),
-			Color(Game.PALE_JADE, 0.6 + 0.4 * sin(_elapsed * 5.0)))
 		draw_set_transform(Vector2.ZERO)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0)]), Game.PALE_JADE)

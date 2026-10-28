@@ -17,6 +17,7 @@ func _ready() -> void:
 
 	var tc: Control = main.get_node("UI/TouchControls")
 	assert(tc != null, "TouchControls missing from the scene")
+	tc.locked = false      # skip the boss intro's input lock
 
 	# landscape-only, both ways up (DisplayServer.SCREEN_SENSOR_LANDSCAPE)
 	assert(int(ProjectSettings.get_setting("display/window/handheld/orientation")) == 4,
