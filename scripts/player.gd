@@ -50,6 +50,7 @@ var _ghost_acc := 0.0
 var _idle_t := 0.0           # idle-breathing phase
 var _face_x := 1.0           # horizontal mirror; keeps its last side when facing straight up/down
 var _roll := 0.0             # dodge-roll spin, radians
+var body_color := Game.SAPPHIRE_CORE   # the Mirror boss reuses this rig in Pale Jade
 
 @onready var boss: Node = get_tree().get_first_node_in_group("boss")
 
@@ -300,7 +301,7 @@ func _swing_angle() -> float:
 
 
 func _draw() -> void:
-	var col := Game.PALE_JADE if _flash > 0.0 else Game.SAPPHIRE_CORE
+	var col := Game.PALE_JADE if _flash > 0.0 else body_color
 
 	# afterimages and the ground shadow both lie on the floor, so they are
 	# drawn outside the body transform

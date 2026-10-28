@@ -19,6 +19,7 @@ const BOSSES := {
 	2: {"name": "THE PENDULUM", "boss": "res://scripts/bosses/pendulum.gd", "env": "res://scripts/envs/library_env.gd", "floor": "hall", "radius": 0.0},
 	3: {"name": "THE PRISM", "boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
 	4: {"name": "THE HOURGLASS", "boss": "res://scripts/bosses/hourglass.gd", "env": "res://scripts/envs/desert_env.gd", "floor": "round", "radius": 40.0},
+	5: {"name": "THE MIRROR", "boss": "res://scripts/bosses/mirror.gd", "env": "res://scripts/envs/mind_env.gd", "floor": "circle", "radius": 30.0},
 }
 const DEFAULT_CELL := 3
 const PICKUP_DIST := 50.0
