@@ -563,6 +563,9 @@ func _clamp_to_arena() -> void:
 	var m := _arena()
 	if m:
 		global_position = m.clamp_to_arena(global_position)
+	# some bosses leave solid things on the floor (the Prism's crystal spikes)
+	if state != State.RICOCHET and boss and is_instance_valid(boss) and boss.has_method("push_out"):
+		global_position = boss.push_out(global_position, 22.0)
 
 
 # --- rig: upright 3/4 view, origin on the ground at the feet ------------
