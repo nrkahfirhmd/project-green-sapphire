@@ -1,16 +1,21 @@
-[gd_scene load_steps=7 format=3 uid="uid://b0greensapphire01"]
+[gd_scene load_steps=9 format=3 uid="uid://b0greensapphire01"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/player.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/boss.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/touch_controls.gd" id="5"]
+[ext_resource type="Shader" path="res://shaders/ascii.gdshader" id="6"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 22.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_boss"]
 radius = 46.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ascii"]
+shader = ExtResource("6")
+shader_parameter/pixel = 1.0
 
 [node name="Main" type="Node2D"]
 y_sort_enabled = true
@@ -35,7 +40,17 @@ script = ExtResource("2")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
 shape = SubResource("CircleShape2D_player")
 
+[node name="Ascii" type="CanvasLayer" parent="."]
+
+[node name="Screen" type="ColorRect" parent="Ascii"]
+material = SubResource("ShaderMaterial_ascii")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
 [node name="UI" type="CanvasLayer" parent="."]
+layer = 2
 
 [node name="HUD" type="Control" parent="UI"]
 layout_mode = 3
