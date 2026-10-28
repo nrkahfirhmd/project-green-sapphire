@@ -43,6 +43,7 @@ var _pop := {}                  # action -> "ready" pop, 1 -> 0
 var _drag_touch := -1           # the touch dragging back on RICOCHET
 var _drag := Vector2.ZERO
 var _was_ult_ready := false
+var _deny := {}                 # action -> 1 -> 0 shake when pressed but not ready
 
 
 func _ready() -> void:
@@ -124,6 +125,11 @@ func _tap(index: int, action: String) -> void:
 	_btn_touch[index] = action
 	Input.action_press(action)
 	_held[action] = 0
+	# pressed too early: the button shakes its head, and the phone says no
+	var not_ready := (action != "dodge" and COOLING.has(action) and _cd(action).x > 0.0) or (action == "ultimate" and _ult().y < 1.0)
+	if not_ready and _player() != null:
+		_deny[action] = 1.0
+		Haptics.play("denied")
 	if action == "ricochet":
 		_drag_touch = index
 		_drag = Vector2.ZERO
@@ -224,6 +230,8 @@ func _process(delta: float) -> void:
 	_was_ult_ready = ult
 	for a in _pop:
 		_pop[a] = maxf(0.0, float(_pop[a]) - delta / 0.12)
+	for a in _deny:
+		_deny[a] = maxf(0.0, float(_deny[a]) - delta / 0.3)
 	queue_redraw()
 
 
@@ -278,6 +286,8 @@ func _draw() -> void:
 	for b in _buttons():
 		var a: String = b["a"]
 		var p: Vector2 = b["p"]
+		var no := float(_deny.get(b["a"], 0.0))
+		p.x += sin(no * 28.0) * 8.0 * no
 		var r: float = b["r"]
 		var down := pressed.has(a)
 		var sc := float(_scale.get(a, 1.0)) * (1.0 + 0.08 * float(_pop.get(a, 0.0)))

@@ -429,7 +429,7 @@ func _draw() -> void:
 
 	var shrink := (1.0 - 0.07 * sin(_t * rate)) * s_
 	draw_colored_polygon(Game.ellipse(58.0 * shrink, 15.0 * shrink), Color(Game.DEEP_MOSS, 0.5))
-	draw_set_transform(off + LIFT, rot, sq)
+	draw_set_transform(off + LIFT + kick(), rot, sq)
 	var body := body_color()
 
 	# arms raise overhead through the windup; fingers splay as the attack nears

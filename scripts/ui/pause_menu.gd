@@ -56,7 +56,7 @@ func setup(back_label: String, back_scene: String, caption_fn: Callable) -> void
 	_resume.pressed.connect(close)
 	back.pressed.connect(func():
 		get_tree().paused = false
-		get_tree().change_scene_to_file(back_scene))
+		Game.go(back_scene))
 	settings.pressed.connect(func():
 		_sheet.hide()
 		_settings.open())
@@ -77,6 +77,7 @@ func _process(_d: float) -> void:
 
 
 func open() -> void:
+	Haptics.play("tap")
 	get_tree().paused = true
 	_caption.set_text(caption.call() if caption.is_valid() else "")
 	show()
@@ -85,17 +86,27 @@ func open() -> void:
 	# overlay fades in; the panel rises 24 units into place
 	_fade = 0.0
 	_sheet.offset_top = TOP + 24.0
+	_sheet.modulate.a = 0.0
 	if _tw:
 		_tw.kill()
 	_tw = create_tween().set_parallel()
 	_tw.tween_property(self, "_fade", 1.0, 0.25).set_ease(Tween.EASE_OUT)
 	_tw.tween_property(_sheet, "offset_top", TOP, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_tw.tween_property(_sheet, "modulate:a", 1.0, 0.18)
 	_resume.grab_focus()
 
 
+## The sheet drops back 24 units as the overlay fades, then play resumes.
 func close() -> void:
-	hide()
-	get_tree().paused = false
+	if _tw:
+		_tw.kill()
+	_tw = create_tween().set_parallel()
+	_tw.tween_property(self, "_fade", 0.0, 0.14).set_ease(Tween.EASE_IN)
+	_tw.tween_property(_sheet, "offset_top", TOP + 24.0, 0.14).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	_tw.tween_property(_sheet, "modulate:a", 0.0, 0.14)
+	_tw.chain().tween_callback(func():
+		hide()
+		get_tree().paused = false)
 
 
 func _draw() -> void:

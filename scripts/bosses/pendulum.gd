@@ -431,7 +431,7 @@ func _draw() -> void:
 		if phase >= 2 and kind == "swing" and attacking:
 			_draw_arm(body, L(_blade(-ang, arm)), -ang, s, attacking)
 
-	draw_set_transform(body, 0.0, _visual * s)
+	draw_set_transform(body + kick(), 0.0, _visual * s)
 	draw_colored_polygon(_diamond(Vector2.ZERO, 34, 40), body_color())
 	draw_colored_polygon(_diamond(Vector2(-8, -8), 14, 16), Color(Game.SAPPHIRE_CORE, 0.35))
 	draw_colored_polygon(_diamond(Vector2.ZERO, 12 + 4 * eye_t, 14 + 4 * eye_t), eye_color())

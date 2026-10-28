@@ -45,6 +45,8 @@ func _select(on: bool) -> void:
 
 
 func _press(down: bool) -> void:
+	if down:
+		Haptics.play("tap")
 	if _press_tw:
 		_press_tw.kill()
 	_press_tw = create_tween()

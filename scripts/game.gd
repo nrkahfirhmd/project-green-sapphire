@@ -113,6 +113,42 @@ func burst(at: Node, pos: Vector2, color: Color, n := 10, speed := 220.0) -> voi
 	at.add_child(p)
 	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
+
+## A shockwave on the floor: a flat ring (squashed for the tilted camera)
+## growing to `radius` and thinning out over `dur`. Drawn under the fighters.
+func ring(at: Node, pos: Vector2, radius: float, color := SAPPHIRE_CORE, dur := 0.4, width := 6.0) -> void:
+	var r := Ring.new()
+	r.position = pos
+	r.radius = radius
+	r.color = color
+	r.dur = dur
+	r.width = width
+	at.add_child(r)
+	at.move_child(r, 0)
+
+
+class Ring extends Node2D:
+	var radius := 100.0
+	var color := Color.WHITE
+	var dur := 0.4
+	var width := 6.0
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _t >= dur:
+			queue_free()
+		queue_redraw()
+
+	func _draw() -> void:
+		var k := clampf(_t / dur, 0.0, 1.0)
+		var e := 1.0 - pow(1.0 - k, 3.0)          # fast out, slowing as it spreads
+		var r := lerpf(radius * 0.2, radius, e)
+		var pts := Game.ellipse(r, r * 0.5, 40)
+		pts.append(pts[0])
+		draw_polyline(pts, Color(color, 1.0 - k), maxf(1.0, width * (1.0 - k)))
+
+
 # --- Cells, and the result screen's bests --------------------------------
 const NUMERALS := ["", "I", "II", "III", "IV", "V"]
 const BOSS_NAMES := {1: "THE TURNKEY", 2: "THE PENDULUM", 3: "THE PRISM", 4: "THE HOURGLASS", 5: "THE MIRROR"}
@@ -151,3 +187,53 @@ func hit_stop(duration: float) -> void:
 	await get_tree().create_timer(duration, true, false, true).timeout
 	if my_id == _hitstop_id:
 		Engine.time_scale = 1.0
+
+
+## Slow motion for `duration` real seconds (a boss's death), easing back to
+## full speed over its last third. A later hit-stop or slow-mo takes over.
+func slow_mo(scale: float, duration: float) -> void:
+	_hitstop_id += 1
+	var my_id := _hitstop_id
+	Engine.time_scale = scale
+	await get_tree().create_timer(duration * 0.66, true, false, true).timeout
+	var steps := 8
+	for i in steps:
+		if my_id != _hitstop_id:
+			return
+		Engine.time_scale = lerpf(scale, 1.0, float(i + 1) / steps)
+		await get_tree().create_timer(duration * 0.34 / steps, true, false, true).timeout
+
+
+# --- Scene transitions -----------------------------------------------
+## Every scene change fades through Deep Moss: 0.18 s out, the swap, 0.28 s
+## in. A fade already running wins; a second request is dropped.
+var _fading := false
+
+func go(path: String) -> void:
+	if _fading:
+		return
+	_fading = true
+	var layer := CanvasLayer.new()
+	layer.layer = 100                  # over the ASCII pass, so the fade is a clean fill
+	var veil := ColorRect.new()
+	veil.color = Color(DEEP_MOSS, 0.0)
+	veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(veil)
+	get_tree().root.add_child(layer)
+	var out := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	out.tween_property(veil, "color:a", 1.0, 0.18).set_ease(Tween.EASE_IN)
+	await out.finished
+	Engine.time_scale = 1.0
+	get_tree().paused = false
+	if path == "":
+		get_tree().reload_current_scene()
+	else:
+		get_tree().change_scene_to_file(path)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var back := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	back.tween_property(veil, "color:a", 0.0, 0.28).set_ease(Tween.EASE_OUT)
+	await back.finished
+	layer.queue_free()
+	_fading = false

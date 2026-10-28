@@ -464,7 +464,7 @@ func _draw() -> void:
 
 	_shadow(60.0 * s, 16.0 * s)
 	# body: two bulbs on frames, turned by _rot about its middle
-	draw_set_transform(Vector2(0, -90), _rot, _visual * s)
+	draw_set_transform(Vector2(0, -90) + kick(), _rot, _visual * s)
 	var body := body_color()
 	draw_rect(Rect2(-56, -88, 112, 14), Color(c, 0.9))
 	draw_rect(Rect2(-56, 74, 112, 14), Color(c, 0.9))

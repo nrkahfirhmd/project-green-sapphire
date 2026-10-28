@@ -14,6 +14,7 @@ extends CharacterBody2D
 ## The player is invulnerable while ricocheting, blinking or in the ultimate.
 ##
 ## Code-driven rig: upright 3/4 view, posed from facing, animated with tweens.
+## Every action is also felt: the patterns live in haptics.gd.
 
 signal died
 signal health_changed(current: int, max: int)
@@ -98,6 +99,11 @@ var _phase_i := 0            # blink: 0 windup, 1 recover; ult: slashes done
 var _ult_base := 0.0
 var _streaks: Array = []     # [{a:Vector2, b:Vector2, age:float}] slash lines on the floor
 var body_color := Game.SAPPHIRE_CORE   # the Mirror boss reuses this rig in Pale Jade
+var _look := Vector2.DOWN    # the facing the rig is drawn with; turns smoothly toward facing
+var _lean := 0.0             # tilt into the run, radians
+var _step := 0.0             # last walk-cycle sign, for footfalls
+var _hurt_t := 99.0          # seconds since last hurt, for the i-frame flicker
+var _dead_t := -1.0          # seconds since death, -1 alive
 
 @onready var boss: Node = get_tree().get_first_node_in_group("boss")
 
@@ -124,8 +130,38 @@ func _play_sfx(name: String) -> void:
 	_sfx_players[name].play()
 
 
+## Felt only by the real player, not the Mirror's copies of this rig.
+func _feel(pattern: String) -> void:
+	if is_in_group("player"):
+		Haptics.play(pattern)
+
+
+## Drawing state. In _process rather than physics so the Mirror's puppets
+## (physics off, posed by hand) animate too.
+func _process(delta: float) -> void:
+	# turn smoothly, except mid-action, where the blade must match the hit
+	if state == State.FREE or state == State.DODGE:
+		_look = _look.slerp(facing, 1.0 - exp(-delta * 18.0))
+		if _look.length() < 0.5:
+			_look = facing           # slerp has no way round a half turn
+		_look = _look.normalized()
+	else:
+		_look = facing
+	var lean_to := clampf(velocity.x / SPEED, -1.0, 1.0) * 0.1 if state == State.FREE else 0.0
+	_lean = lerpf(_lean, lean_to, 1.0 - exp(-delta * 10.0))
+	_hurt_t += delta
+	# blink out every other 0.05 s while the hurt i-frames last
+	self_modulate.a = 0.35 if _hurt_t < 0.45 and fmod(_hurt_t, 0.1) < 0.05 else 1.0
+	if _dead_t >= 0.0:
+		_dead_t += delta
+		_flash = maxf(0.0, _flash - delta)     # physics, which fades it, has stopped
+		queue_redraw()
+
+
 func _physics_process(delta: float) -> void:
 	_dodge_cd = max(0.0, _dodge_cd - delta)
+	if (_rico_cd > 0.0 and _rico_cd <= delta) or (_blink_cd > 0.0 and _blink_cd <= delta):
+		_feel("ready")              # an ability came back
 	_rico_cd = maxf(0.0, _rico_cd - delta)
 	_blink_cd = maxf(0.0, _blink_cd - delta)
 	_rehit = maxf(0.0, _rehit - delta)
@@ -184,6 +220,11 @@ func _do_free(delta: float) -> void:
 	if velocity.length() > 30.0:
 		_walk += delta * 16.0
 		_walk_amp = move_toward(_walk_amp, 1.0, delta * 6.0)
+		# a puff of dust each time a foot comes down
+		var st := signf(sin(_walk))
+		if st != _step and _walk_amp > 0.6:
+			_burst(global_position + Vector2(_step * 6.0, 0), Color(Game.SAPPHIRE_CORE, 0.5), 3, 70.0)
+		_step = st
 	else:
 		_walk_amp = move_toward(_walk_amp, 0.0, delta * 6.0)
 
@@ -192,6 +233,8 @@ func _do_free(delta: float) -> void:
 		var aim := Input.get_vector("aim_left", "aim_right", "aim_up", "aim_down")
 		if aim.length() > 0.2:
 			_aim = aim.normalized()
+		if not _aiming and _rico_cd <= 0.0:
+			_feel("aim")
 		_aiming = true
 	elif _aiming:
 		_aiming = false
@@ -222,6 +265,7 @@ func _start_dodge() -> void:
 	_ghost_acc = 0.0
 	_roll = 0.0
 	_pop_visual(Vector2(1.35, 0.7))   # stretch along travel
+	_feel("dodge")
 	_play_sfx("dodge")
 	_burst(global_position, Game.SAPPHIRE_CORE, 8)
 	get_tree().create_timer(DODGE_IFRAME_TIME).timeout.connect(func(): invulnerable = false)
@@ -239,6 +283,7 @@ func _do_dodge(delta: float) -> void:
 		state = State.FREE
 		_roll = 0.0
 		_pop_visual(Vector2(0.85, 1.15))
+		_burst(global_position, Color(Game.SAPPHIRE_CORE, 0.5), 5, 90.0)   # landing dust
 
 
 func _start_attack(name: String) -> void:
@@ -252,6 +297,7 @@ func _start_attack(name: String) -> void:
 	_walk_amp = 0.0
 	var s := 1.25 if name == "heavy" else 1.12
 	_pop_visual(Vector2(s, 2.0 - s))   # scale-pulse windup
+	_feel("swing_heavy" if name == "heavy" else "swing_light")
 	_play_sfx("attack")
 
 
@@ -269,6 +315,8 @@ func _do_attack(delta: float) -> void:
 			_atk_phase = "active"
 			_atk_timer = a["active"]
 			_atk_dur = _atk_timer
+			# spring forward into the lunge
+			_pop_visual(Vector2(0.86, 1.16) if _atk_name == "heavy" else Vector2(0.93, 1.07))
 		"active":
 			if not _atk_hit_done:
 				_resolve_hit(a)
@@ -295,7 +343,10 @@ func _resolve_hit(a: Dictionary) -> void:
 	_thrust_parts(start, end, float(a["width"]))
 	if not _on_line(start, end, float(a["width"])):
 		return
-	_hit_boss(a["dmg"], global_position)
+	if _hit_boss(a["dmg"], global_position):
+		_feel("hit_heavy" if _atk_name == "heavy" else "hit_light")
+		if _atk_name == "heavy":
+			_ring(boss.global_position, 150.0, Game.PALE_JADE)
 	Game.hit_stop(a["hitstop"])
 	_request_shake(a["shake"])
 	if a["punch"] > 0.0:
@@ -324,12 +375,18 @@ func _thrust_parts(a: Vector2, b: Vector2, width: float) -> void:
 		boss.on_thrust(a, b, width)
 
 
-## Damage the boss; whatever actually lands charges the ultimate.
-func _hit_boss(dmg: int, from: Vector2, pierce := false) -> void:
+## Damage the boss; whatever actually lands charges the ultimate. True when
+## it landed (a shield turns it away).
+func _hit_boss(dmg: int, from: Vector2, pierce := false) -> bool:
 	var before := int(boss.hp)
 	boss.take_hit(dmg, from, pierce)
 	if state != State.ULT:
+		var was := ult_charge
 		ult_charge = mini(ULT_COST, ult_charge + maxi(0, before - int(boss.hp)))
+		if was < ULT_COST and ult_charge >= ULT_COST:
+			_feel("ult_ready")
+			_ring(global_position, 120.0, Game.PALE_JADE, 0.5)
+	return int(boss.hp) < before
 
 
 func ult_ready() -> bool:
@@ -374,8 +431,10 @@ func _start_ricochet(dir: Vector2) -> void:
 	_walk_amp = 0.0
 	_ghost_acc = 0.0
 	_pop_visual(Vector2(1.4, 0.65))
+	_feel("ricochet")
 	_play_sfx("dodge")
 	_burst(global_position, Game.SAPPHIRE_CORE, 10)
+	_ring(global_position, 110.0)
 
 
 func _do_ricochet(delta: float) -> void:
@@ -387,19 +446,18 @@ func _do_ricochet(delta: float) -> void:
 		# off the edge: reflect about the wall and carry on
 		_move_dir = _move_dir.bounce((p - c).normalized())
 		facing = _move_dir
-		_request_shake(5.0)
-		_burst(c, Game.SAPPHIRE_CORE, 8)
+		_bounced(c)
 	elif _boss_alive() and boss.has_method("deflects"):
 		# a boss's solid parts (the Turnkey's key barrier) bounce it too
 		var n: Vector2 = boss.deflects(c, 24.0)
 		if n != Vector2.ZERO and _move_dir.dot(n) < 0.0:
 			_move_dir = _move_dir.bounce(n)
 			facing = _move_dir
-			_request_shake(5.0)
-			_burst(c, Game.SAPPHIRE_CORE, 8)
+			_bounced(c)
 	global_position = c
 	if _rehit <= 0.0 and _boss_alive() and global_position.distance_to(boss.global_position) < BOSS_R + 24.0:
-		_hit_boss(RICOCHET_DMG, global_position)
+		if _hit_boss(RICOCHET_DMG, global_position):
+			_feel("pierce")
 		_rehit = RICOCHET_REHIT
 		Game.hit_stop(0.04)
 		_request_shake(6.0)
@@ -413,6 +471,15 @@ func _do_ricochet(delta: float) -> void:
 		_roll = 0.0
 		_pop_visual(Vector2(0.85, 1.15))
 		get_tree().create_timer(0.15).timeout.connect(func(): invulnerable = false)
+
+
+## A ricochet bounce: squash against the wall, a small shockwave, a tap.
+func _bounced(at: Vector2) -> void:
+	_feel("bounce")
+	_request_shake(5.0)
+	_burst(at, Game.SAPPHIRE_CORE, 8)
+	_ring(at, 70.0, Game.SAPPHIRE_CORE, 0.25)
+	_pop_visual(Vector2(0.7, 1.3))
 
 
 ## Where a ricochet launched along `dir` would go, bounces included.
@@ -445,6 +512,7 @@ func _start_blink() -> void:
 	velocity = Vector2.ZERO
 	_walk_amp = 0.0
 	_pop_visual(Vector2(0.8, 1.2))
+	_feel("blink")
 	_play_sfx("attack")
 
 
@@ -457,6 +525,9 @@ func _do_blink(delta: float) -> void:
 		var a := global_position
 		var b := _floor_point(a + _move_dir * BLINK_DIST)
 		_teleport(a, b)
+		_ring(a, 80.0, Game.SAPPHIRE_CORE, 0.3)
+		_ring(b, 120.0, Game.PALE_JADE, 0.35)
+		_pop_visual(Vector2(1.25, 0.8))
 		if _boss_alive():
 			_thrust_parts(a, b, BLINK_WIDTH)
 		if _boss_alive() and _on_line(a, b, BLINK_WIDTH):
@@ -491,6 +562,8 @@ func _start_ult() -> void:
 	velocity = Vector2.ZERO
 	_walk_amp = 0.0
 	_ult_base = (global_position - boss.global_position).angle()
+	_feel("ult_start")
+	_ring(boss.global_position, 300.0, Game.PALE_JADE, 0.5)
 	_request_punch(1.1)
 	_play_sfx("attack")
 
@@ -506,6 +579,8 @@ func _do_ult(delta: float) -> void:
 		state = State.FREE
 		get_tree().create_timer(0.3).timeout.connect(func(): invulnerable = false)
 		_pop_visual(Vector2(0.85, 1.15))
+		_feel("ult_end")
+		_ring(global_position, 260.0, Game.SAPPHIRE_CORE, 0.5)
 		return
 	var ang := _ult_base + PI + _phase_i * PI * 0.8
 	var centre: Vector2 = boss.global_position
@@ -514,6 +589,7 @@ func _do_ult(delta: float) -> void:
 	facing = (b - a).normalized()
 	_teleport(a, b)
 	_hit_boss(1, a, true)
+	_feel("ult_slash")
 	Game.hit_stop(0.04)
 	_request_shake(7.0)
 	_burst(centre, Game.PALE_JADE, 10)
@@ -529,8 +605,8 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 	_flash = 0.18
 	invulnerable = true
 	_play_sfx("hit")
-	if Game.haptic_enabled:
-		Input.vibrate_handheld(100)   # ponytail: fixed 100ms buzz, tune if it needs weight per hit
+	_feel("hurt")
+	_hurt_t = 0.0
 	velocity = (global_position - from_pos).normalized() * 340.0
 	_pop_visual(Vector2(1.3, 0.75))
 	_request_shake(9.0)
@@ -541,6 +617,8 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 	health_changed.emit(hp, MAX_HP)
 	get_tree().create_timer(0.45).timeout.connect(func(): invulnerable = false)
 	if hp <= 0:
+		_dead_t = 0.0
+		_hurt_t = 99.0
 		died.emit()
 		set_physics_process(false)
 
@@ -563,10 +641,16 @@ func _request_punch(zoom_scale: float) -> void:
 		main.punch(zoom_scale)
 
 
-func _burst(pos: Vector2, col: Color, n := 10) -> void:
+func _burst(pos: Vector2, col: Color, n := 10, speed := 220.0) -> void:
 	var main := get_tree().current_scene
 	if main and main.has_method("spawn_burst"):
-		main.spawn_burst(pos, col, n)
+		main.spawn_burst(pos, col, n, speed)
+
+
+func _ring(pos: Vector2, radius: float, col := Game.SAPPHIRE_CORE, dur := 0.4) -> void:
+	var main := get_tree().current_scene
+	if main and main.has_method("spawn_ring"):
+		main.spawn_ring(pos, radius, col, dur)
 
 
 func _clamp_to_arena() -> void:
@@ -644,6 +728,13 @@ func _draw() -> void:
 
 	draw_colored_polygon(Game.ellipse(13 * RIG, 5 * RIG), Color(Game.DEEP_MOSS, 0.55))
 
+	# ultimate ready: a Jade ring breathing on the floor round the feet
+	if ult_charge >= ULT_COST and state == State.FREE and _dead_t < 0.0:
+		var k := 0.5 + 0.5 * sin(_idle_t * 5.0)
+		var ring := Game.ellipse((18.0 + 5.0 * k) * RIG, (7.0 + 2.0 * k) * RIG, 28)
+		ring.append(ring[0])
+		draw_polyline(ring, Color(Game.PALE_JADE, 0.45 + 0.4 * k), 3.0)
+
 	# body transform: breathing, walk bob, dodge tumble, hurt jitter
 	var sq := _visual
 	var breathe := 1.0 + sin(_idle_t * 2.4) * 0.022 * (1.0 - _walk_amp)
@@ -654,8 +745,14 @@ func _draw() -> void:
 	if _flash > 0.0:
 		var j := _flash * 14.0
 		offset += Vector2(randf_range(-j, j), randf_range(-j, j))
-	var spin := 0.0
-	if state == State.DODGE or state == State.RICOCHET:
+	var spin := _lean
+	if _dead_t >= 0.0:
+		# dead: topples sideways about the feet with a little bounce, and lies there
+		var k := clampf(_dead_t / 0.45, 0.0, 1.0)
+		spin = -_face_x * PI * 0.5 * (1.0 - pow(1.0 - k, 3.0) + 0.06 * sin(k * PI))
+		offset = Vector2.ZERO
+		sq = Vector2.ONE
+	elif state == State.DODGE or state == State.RICOCHET:
 		# tumble about the waist; rotating about the feet would read as a topple
 		spin = _roll * _face_x
 		var pivot := Vector2(0, -22 * RIG)
@@ -669,7 +766,7 @@ func _draw() -> void:
 	_capsule_o(Vector2(4.5 * RIG, -15 * RIG), Vector2(4.5 * RIG - stride, 0.0), 3.5 * RIG, col)
 
 	# walking away from the camera puts the sword arm behind the body
-	var behind := facing.y < -0.3
+	var behind := _look.y < -0.3
 	if behind:
 		_draw_sword(col)
 
@@ -679,8 +776,8 @@ func _draw() -> void:
 	_circle_o(Vector2(0, -39 * RIG), 6.5 * RIG, col)
 
 	# eyes exist only on the side of the head the camera can actually see
-	if facing.y > -0.3:
-		var ey := -40.0 * RIG + facing.y * 1.5 * RIG
+	if _look.y > -0.3 and _dead_t < 0.0:
+		var ey := -40.0 * RIG + _look.y * 1.5 * RIG
 		var ex := 2.4 * RIG
 		var cx := _face_x * 1.4 * RIG
 		draw_circle(Vector2(cx - ex, ey), 1.4 * RIG, Game.DEEP_MOSS)
@@ -699,7 +796,7 @@ func _draw() -> void:
 func _draw_sword(col: Color) -> void:
 	var ext := _extension()
 	var off := 0.0 if state != State.FREE else (0.35 + sin(_idle_t * 2.2) * 0.05) * _face_x
-	var gdir := Vector2(1, 0).rotated(facing.angle() + off)
+	var gdir := Vector2(1, 0).rotated(_look.angle() + off)
 
 	var shoulder := Vector2(8 * RIG * _face_x, -30 * RIG)
 	var hand := shoulder + _project(gdir * (10.0 + 9.0 * ext) * RIG)
@@ -719,6 +816,12 @@ func _draw_sword(col: Color) -> void:
 	_capsule(butt, hand, 1.6 * RIG, Game.DEEP_MOSS)
 	draw_circle(hand + sdir * 1.5 * RIG, 3.6 * RIG + OUTLINE * 0.5, Game.DEEP_MOSS)
 	draw_circle(hand + sdir * 1.5 * RIG, 3.6 * RIG, col)
+
+	# a heavy thrust gathers: a four-point glint grows on the tip as it winds up
+	if state == State.ATTACK and _atk_name == "heavy" and _atk_phase == "windup":
+		var g := (3.0 + 9.0 * _atk_progress()) * RIG
+		draw_colored_polygon(PackedVector2Array([tip + Vector2(0, -g), tip + Vector2(g * 0.22, 0), tip + Vector2(0, g), tip + Vector2(-g * 0.22, 0)]), Game.PALE_JADE)
+		draw_colored_polygon(PackedVector2Array([tip + Vector2(-g, 0), tip + Vector2(0, g * 0.22), tip + Vector2(g, 0), tip + Vector2(0, -g * 0.22)]), Game.PALE_JADE)
 
 	# the thrust's real reach: a streak down the middle of the strip it hits,
 	# with the heavy thrust's wider strip shown faintly around it

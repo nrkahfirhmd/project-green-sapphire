@@ -317,7 +317,7 @@ func _physics_process(delta: float) -> void:
 	super(delta)
 	var face := (player_pos() - global_position).normalized()
 	var moving := velocity.length() > 20.0
-	_pose(real, global_position, face if state == S.IDLE else _aim, delta, moving)
+	_pose(real, global_position + kick(), face if state == S.IDLE else _aim, delta, moving)
 	real.body_color = Game.SAPPHIRE_CORE if _flash > 0.0 else Game.PALE_JADE
 	for sh in _shards:
 		_pose(sh.pup, sh.pup.global_position, (player_pos() - sh.pup.global_position).normalized() if state == S.IDLE else _aim, delta, moving)

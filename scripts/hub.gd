@@ -27,6 +27,7 @@ const ALTAR_R := 92.0            # the altar is solid out to here
 const REACH := 150.0             # this close counts as standing at the altar
 const ENTER_DEPTH := 20.0        # how far into a cell before the fight starts
 const MOTES := 40
+const FLY_TIME := 0.5            # a sapphire's flight from the player to the altar
 const GATE_W := 230.0            # gate V spans x 860-1090 on the 1950 canvas
 const HOME := "res://scenes/home.tscn"
 const UI := preload("res://scripts/ui/ui.gd")
@@ -54,6 +55,8 @@ var _live: Node2D
 var _t := 0.0
 var _gate_open := 0.0            # 0 shut .. 1 bars fully raised
 var _lamp_pulse := 0.0           # Jade lamp pulses when the gate unlocks, 0.9 s
+var _flying := {}                # sapphire id -> 0..1 through its flight onto the altar
+var _gate_felt := false          # the gate's rumble has played
 var _leaving := false
 var _hud: Control
 var _ending: Control
@@ -77,12 +80,15 @@ func _ready() -> void:
 	player.global_position = doors[from].mouth if doors.has(from) else altar + Vector2(-240.0, 0.0)
 	Game.current_boss = 0
 	_gate_open = 1.0 if _gate_unlocked() else 0.0
+	_gate_felt = _gate_unlocked()
 
 	_build(vp)
 	_live = Node2D.new()
 	_live.draw.connect(_draw_live)
 	add_child(_live)
 
+	if doors.has(from):
+		Game.ring(self, player.global_position, 140.0)    # stepping back out of the cell
 	_hud = HubHud.new(self)
 	$UI.add_child(_hud)
 	var pause := Pause.new()
@@ -124,11 +130,24 @@ func spawn_burst(pos: Vector2, color: Color, n := 10, speed := 220.0) -> void:
 	Game.burst(self, pos, color, n, speed)
 
 
+func spawn_ring(pos: Vector2, radius: float, color := Game.SAPPHIRE_CORE, dur := 0.4) -> void:
+	Game.ring(self, pos, radius, color, dur)
+
+
 func _process(delta: float) -> void:
 	_t += delta
 	_lamp_pulse = maxf(0.0, _lamp_pulse - delta)
 	if _gate_unlocked():
-		_gate_open = move_toward(_gate_open, 1.0, delta * 0.7)
+		if not _gate_felt and _flying.is_empty():      # after the last sapphire lands
+			_gate_felt = true
+			Haptics.play("gate")       # the bars grinding down into the floor
+		if _gate_felt:
+			_gate_open = move_toward(_gate_open, 1.0, delta * 0.7)
+	for id in _flying.keys():
+		_flying[id] += delta / FLY_TIME
+		if _flying[id] >= 1.0:
+			_flying.erase(id)
+			_landed(id)
 	if not _leaving:
 		_set_sapphires()
 		_check_doors()
@@ -147,11 +166,19 @@ func _set_sapphires() -> void:
 		if Game.crystals[id] != "carried":
 			continue
 		Game.crystals[id] = "placed"
-		spawn_burst(_socket(id), Game.SAPPHIRE_CORE, 18, 260.0)
-		if id != 5 and _gate_unlocked():
-			_lamp_pulse = 0.9          # the only Jade moment outside a fight
-		if id == 5:
-			_show_ending()
+		_flying[id] = 0.0              # lifted off the player's head; lands in _landed
+		Haptics.play("tap")
+
+
+## A sapphire has flown into its socket on the altar.
+func _landed(id: int) -> void:
+	Haptics.play("place")
+	spawn_burst(_socket(id), Game.SAPPHIRE_CORE, 18, 260.0)
+	spawn_ring(altar, 260.0, Game.SAPPHIRE_CORE, 0.5)
+	if id != 5 and _gate_unlocked():
+		_lamp_pulse = 0.9              # the only Jade moment outside a fight
+	if id == 5:
+		_show_ending()
 
 
 func _check_doors() -> void:
@@ -159,7 +186,8 @@ func _check_doors() -> void:
 		if _door_open(id) and doors[id].cell.grow(-ENTER_DEPTH).has_point(player.global_position):
 			_leaving = true
 			Game.current_boss = id
-			get_tree().change_scene_to_file.call_deferred(FIGHT)
+			Haptics.play("door")
+			Game.go(FIGHT)
 			return
 
 
@@ -394,11 +422,16 @@ func _draw_live() -> void:
 	var g: Rect2 = doors[5].cell
 	var top := g.position.y + _gate_open * g.size.y
 	if top < g.end.y:
+		# shuddering while they grind down
+		var j := 2.5 if _gate_open > 0.0 and _gate_open < 1.0 else 0.0
+		var sx := randf_range(-j, j)
 		var x := g.position.x + 10.0
 		while x < g.end.x:
-			_live.draw_line(Vector2(x, top), Vector2(x, g.end.y), Color(c, 0.65), 6.0)
+			_live.draw_line(Vector2(x + sx, top), Vector2(x + sx, g.end.y), Color(c, 0.65), 6.0)
 			x += 16.0
-		_live.draw_line(Vector2(g.position.x, top), Vector2(g.end.x, top), Color(c, 0.65), 6.0)
+		_live.draw_line(Vector2(g.position.x + sx, top), Vector2(g.end.x + sx, top), Color(c, 0.65), 6.0)
+		if j > 0.0 and randf() < 0.3:
+			_live.draw_circle(Vector2(randf_range(g.position.x, g.end.x), g.end.y - 4.0), 3.0, Color(c, 0.5))   # grit
 	var jade := _lamp_pulse > 0.0 and fmod(_lamp_pulse, 0.3) > 0.12
 	for i in 4:
 		var lp := Vector2(g.get_center().x - 54.0 + i * 36.0, g.position.y - 26.0)
@@ -422,8 +455,16 @@ func _draw_live() -> void:
 			s + Vector2(0, 2), s + Vector2(-6, -3)]), Color(c, 0.8))
 
 	# sapphires on the altar
+	for id in _flying:
+		# up off the player's head, over in an arc, down into its socket
+		var u: float = _flying[id]
+		var e := u * u * (3.0 - 2.0 * u)
+		var from := player.global_position + Vector2(0, -108.0)
+		var to := _socket(id) + Vector2(0, -30.0)
+		var at := from.lerp(to, e) + Vector2(0, -120.0 * 4.0 * u * (1.0 - u))
+		UI.diamond(_live, at, 20.0 * (1.0 - 0.3 * u), c)
 	for id in [1, 2, 3, 4, 5]:
-		if Game.crystals.get(id, "") != "placed":
+		if Game.crystals.get(id, "") != "placed" or _flying.has(id):
 			continue
 		var s := _socket(id)
 		var h := 72.0 if id == 5 else 46.0
@@ -459,7 +500,7 @@ func _show_ending() -> void:
 	var home := Btn.new("RETURN HOME", Vector2(440, 100), 28)
 	home.pressed.connect(func():
 		Game.new_game()
-		get_tree().change_scene_to_file(HOME))
+		Game.go(HOME))
 	var cc := CenterContainer.new()
 	cc.add_child(home)
 	col.add_child(cc)

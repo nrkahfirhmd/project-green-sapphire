@@ -13,6 +13,8 @@ const JAIL := "res://scenes/hub.tscn"
 var _menu: Control
 var _play: BaseButton
 var _settings: Control
+var _gems: Control
+var _t := 0.0
 
 
 func _ready() -> void:
@@ -32,14 +34,20 @@ func _ready() -> void:
 	var tc := CenterContainer.new()
 	tc.add_child(title)
 	col.add_child(tc)
-	# five diamonds: outlines, the middle one solid and larger
-	col.add_child(W.Shape.new(Vector2(0, 36), func(c: Control, s: Vector2):
+	# five diamonds: outlines, the middle one solid and larger. A glow runs
+	# along the row every few seconds and the middle one breathes.
+	_gems = W.Shape.new(Vector2(0, 36), func(c: Control, s: Vector2):
+		var wave := fmod(_t, 3.2) / 0.9           # passes the five in 0.9 s, then rests
 		for i in 5:
 			var p := Vector2(s.x * 0.5 + (i - 2) * 52.0, s.y * 0.5)
+			var lit := maxf(0.0, 1.0 - absf(wave * 5.0 - i - 0.5))
 			if i == 2:
-				UI.diamond(c, p, 28, UI.CORE)
+				UI.diamond(c, p, 28.0 * (1.0 + 0.06 * sin(_t * 2.2) + 0.12 * lit), UI.CORE)
 			else:
-				UI.diamond(c, p, 18, UI.CORE, false)))
+				UI.diamond(c, p, 18.0 * (1.0 + 0.15 * lit), UI.CORE, false)
+				if lit > 0.0:
+					UI.diamond(c, p, 18.0 * (1.0 + 0.15 * lit), Color(UI.CORE, lit * 0.8)))
+	col.add_child(_gems)
 
 	var buttons := W.vbox(16)
 	buttons.add_theme_constant_override("separation", 16)
@@ -61,14 +69,33 @@ func _ready() -> void:
 	_settings.hide()
 	add_child(_settings)
 
-	_play.pressed.connect(func(): get_tree().change_scene_to_file(JAIL))
+	_play.pressed.connect(func(): Game.go(JAIL))
 	settings.pressed.connect(_open_settings.bind(true))
 	_settings.closed.connect(_open_settings.bind(false))
 	_play.grab_focus.call_deferred()
 
+	# rows arrive one after another, each rising 16 units as it fades in
+	var i := 0
+	for row in col.get_children():
+		row.modulate.a = 0.0
+		var tw := create_tween()
+		tw.tween_interval(0.1 + 0.09 * i)
+		tw.tween_property(row, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+		i += 1
+	_menu.offset_top += 16.0
+	create_tween().tween_property(_menu, "offset_top", _menu.offset_top - 16.0, 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+
+func _process(delta: float) -> void:
+	_t += delta
+	_gems.queue_redraw()
+
 
 func _open_settings(on: bool) -> void:
 	_menu.visible = not on
+	var shown: Control = _settings if on else _menu
+	shown.modulate.a = 0.0
+	create_tween().tween_property(shown, "modulate:a", 1.0, 0.15).set_ease(Tween.EASE_OUT)
 	if on:
 		_settings.open()
 	else:

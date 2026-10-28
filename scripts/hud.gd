@@ -34,6 +34,8 @@ var _shown := 1.0                # fill of the current bar, 0..1, tweened
 var _trail := 1.0                # the trailing chunk behind it
 var _spare_pop := 0.0            # 1 -> 0 as an emptied spare square settles
 var _pulse := 0.0
+var _jolt := 0.0                 # boss bar knocked sideways by a hit, 1 -> 0
+var _beat := 0.0                 # last-heart heartbeat clock
 var elapsed := 0.0
 var timing := false
 var _intro := -1.0               # seconds into the intro, -1 when not showing
@@ -94,6 +96,8 @@ func _spares(hp: int) -> int:
 
 
 func _on_b_health(cur: int, mx: int) -> void:
+	if cur < _b_hp:
+		_jolt = 1.0
 	var before := _spares(_b_hp)
 	_b_max = mx
 	var emptied := _spares(cur) < before
@@ -125,10 +129,21 @@ func _process(delta: float) -> void:
 		elapsed += delta
 	_lost_t += delta
 	_spare_pop = maxf(0.0, _spare_pop - delta / 0.3)
+	_jolt = maxf(0.0, _jolt - delta / 0.25)
 	_pulse += delta
+	# down to the last heart: it thumps, and the phone with it, once a second
+	if _p_hp == 1 and timing and _result == null:
+		_beat += delta
+		if _beat >= 1.0:
+			_beat = 0.0
+			Haptics.play("heartbeat")
+	else:
+		_beat = 0.0
 	if _intro >= 0.0:
 		var was := _intro
 		_intro += delta
+		if was < 0.15 and _intro >= 0.15:
+			Haptics.play("intro")       # the boss's name lands
 		if was < 1.4 and _intro >= 1.4:
 			intro_released.emit()
 		if _intro >= 1.6:
@@ -288,6 +303,9 @@ func _draw() -> void:
 
 	# hearts and timer, right of the pause button
 	var hp0 := s.position + Vector2(152, 32)
+	if _lost_t < 0.25:
+		var j := 6.0 * (1.0 - _lost_t / 0.25)          # the row shakes as a heart goes
+		hp0 += Vector2(randf_range(-j, j), randf_range(-j, j))
 	for i in _p_max:
 		var at := hp0 + Vector2(i * 38.0, 0)
 		if i == _lost and _lost_t < 0.35:
@@ -297,13 +315,17 @@ func _draw() -> void:
 			UI.heart(self, at, Color(c, 0.6), false)
 			UI.heart(self, at, Color(UI.JADE, a), true, lerpf(1.2, 1.0, k))
 		elif i < _p_hp:
-			UI.heart(self, at, c)
+			# lub-dub on the last heart, in time with the haptic heartbeat
+			var thump := 1.0
+			if _p_hp == 1:
+				thump += 0.18 * maxf(0.0, 1.0 - _beat / 0.12) + 0.1 * maxf(0.0, 1.0 - absf(_beat - 0.18) / 0.1)
+			UI.heart(self, at, c, true, thump)
 		else:
 			UI.heart(self, at, Color(c, 0.6), false)
 	UI.text(self, s.position + Vector2(152, 70), UI.fmt_time(elapsed), 24, c, 400)
 
 	# boss block: "III · NAME", the bar, and one square per spare bar
-	var bx := size.x * 0.5 - BAR.x * 0.5
+	var bx := size.x * 0.5 - BAR.x * 0.5 + sin(_jolt * 30.0) * 7.0 * _jolt
 	var by := 20.0
 	UI.text(self, Vector2(size.x * 0.5, by), "%s · %s" % [Game.NUMERALS[cell], Game.BOSS_NAMES.get(cell, "")], 20, c, 600, 0.15, 0)
 	var bar := Rect2(bx, by + UI.text_height(20) + 8.0, BAR.x, BAR.y)

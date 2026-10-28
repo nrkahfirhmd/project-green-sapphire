@@ -22,6 +22,8 @@ var eye_t := 0.0             # 0..1 countdown to the next attack
 var player: Node2D
 var _flash := 0.0
 var _visual := Vector2.ONE
+var _kick := Vector2.ZERO    # recoil from the last hit, springs back to zero
+var _shard_acc := 0.0
 var _t := 0.0                # time alive, for idle motion
 var _death_t := 0.0
 
@@ -35,10 +37,12 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_t += delta
 	_flash = maxf(0.0, _flash - delta)
+	_kick = _kick.lerp(Vector2.ZERO, 1.0 - exp(-delta * 14.0))
 	if player == null or not is_instance_valid(player):
 		player = get_tree().get_first_node_in_group("player")
 	if dead:
 		_death_t += delta
+		_shatter(delta)
 		velocity = velocity.move_toward(Vector2.ZERO, 400.0 * delta)
 		move_and_slide()
 	else:
@@ -68,10 +72,13 @@ func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	if not pierce and not _can_be_hit():
 		_burst(from_pos.lerp(global_position, 0.6), Game.SAPPHIRE_CORE, 6)
 		_request_shake(2.0)
+		_recoil(from_pos, 5.0)
+		Haptics.play("blocked")
 		return
 	hp = maxi(0, hp - amount)
 	_flash = 0.12
 	_pop_visual(Vector2(1.18, 0.84))
+	_recoil(from_pos, 8.0 + 5.0 * amount)
 	_burst(from_pos.lerp(global_position, 0.7), Game.SAPPHIRE_CORE, 12)
 	_on_hit(amount)
 	health_changed.emit(hp, max_hp)
@@ -94,6 +101,7 @@ func phases() -> Array:
 
 func telegraph(kind: String) -> void:
 	telegraph_started.emit(kind)
+	Haptics.play("telegraph")
 	_pop_visual(Vector2(0.88, 1.14))
 
 
@@ -116,6 +124,35 @@ func body_color() -> Color:
 ## Telegraph fill: Pale Jade, brighter as the attack nears.
 func warn_color(t := eye_t) -> Color:
 	return Color(Game.PALE_JADE, 0.22 + 0.5 * t)
+
+
+## Where to draw the body from: the hit recoil, and a tremble as it dies.
+## Every boss adds this to its body's draw transform.
+func kick() -> Vector2:
+	var k := _kick
+	if dead and _death_t < 0.8:
+		var j := 7.0 * (1.0 - _death_t / 0.8)
+		k += Vector2(randf_range(-j, j), randf_range(-j, j))
+	return k
+
+
+## Knocked back from where the blow came from.
+func _recoil(from_pos: Vector2, dist: float) -> void:
+	var away := global_position - from_pos
+	_kick = (away.normalized() if away.length() > 1.0 else Vector2.UP) * dist
+
+
+## The first second of death: the body flickers white and throws off shards.
+func _shatter(delta: float) -> void:
+	if _death_t > 1.0:
+		return
+	if fmod(_death_t, 0.12) < 0.06 and _death_t < 0.6:
+		_flash = 0.02
+	_shard_acc -= delta
+	if _shard_acc <= 0.0:
+		_shard_acc = 0.09
+		var at := global_position + Vector2(randf_range(-60, 60), randf_range(-150, 0))
+		_burst(at, Game.PALE_JADE if randf() < 0.5 else Game.SAPPHIRE_CORE, 6)
 
 
 func death_scale() -> float:

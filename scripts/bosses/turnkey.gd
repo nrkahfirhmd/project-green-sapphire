@@ -492,7 +492,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO)
 
 	# core: shadow, diamond, shield ring while it's locked
-	draw_set_transform(Vector2.ZERO, 0.0, _visual * s)
+	draw_set_transform(kick(), 0.0, _visual * s)
 	_shadow(26, 8)
 	var c := Vector2(0, -LIFT - 10 + bob)
 	if not _can_be_hit():
