@@ -4,35 +4,37 @@ shader_type canvas_item;
 // brightness picks how dense the glyph is, the brightest pixel picks its green.
 // The HUD and touch controls sit on a higher CanvasLayer and are untouched.
 //
-// Glyphs are 5x5 bitmaps packed into ints, so no font asset is needed.
+// Glyphs are 3x4 bitmaps packed into ints, so no font asset is needed. Small
+// on purpose: at one screen pixel per glyph pixel a 4x5 cell is fine enough
+// for a 30 px key to keep its bow, shaft and bit.
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
 // Size of one glyph pixel, in viewport pixels. 1 is the smallest the glyphs
 // can go and stay crisp; 2 doubles them. It is snapped to whole screen pixels,
-// which is what keeps a 5x5 glyph sharp at this size.
+// which is what keeps a glyph sharp at this size.
 uniform float pixel = 1.0;
-const vec2 CELL = vec2(6.0, 7.0);   // 5x5 glyph + 1 column and 2 rows of gap
+const vec2 CELL = vec2(4.0, 5.0);   // 3x4 glyph + 1 column and 1 row of gap
 
 const vec3 MOSS = vec3(0.231, 0.286, 0.224);
 const vec3 CORE = vec3(0.412, 0.627, 0.384);
 const vec3 JADE = vec3(0.733, 0.886, 0.714);
 
-// one 5-bit row per argument, top row first, leftmost column = high bit
-int pack(int a, int b, int c, int d, int e) {
-	return (a << 20) | (b << 15) | (c << 10) | (d << 5) | e;
+// one 3-bit row per argument, top row first, leftmost column = high bit
+int pack(int a, int b, int c, int d) {
+	return (a << 9) | (b << 6) | (c << 3) | d;
 }
 
 // density ramp, 1 = sparsest
 int ramp(int i) {
-	if (i == 1) return pack(0, 0, 0, 0, 4);         // .
-	if (i == 2) return pack(0, 4, 0, 4, 0);         // :
-	if (i == 3) return pack(0, 0, 14, 0, 0);        // -
-	if (i == 4) return pack(0, 31, 0, 31, 0);       // =
-	if (i == 5) return pack(4, 4, 31, 4, 4);        // +
-	if (i == 6) return pack(21, 14, 31, 14, 21);    // *
-	if (i == 7) return pack(10, 31, 10, 31, 10);    // #
-	if (i == 8) return pack(25, 26, 4, 11, 19);     // %
-	return pack(14, 17, 23, 16, 15);                // @
+	if (i == 1) return pack(0, 0, 0, 2);            // .
+	if (i == 2) return pack(0, 2, 0, 2);            // :
+	if (i == 3) return pack(0, 0, 7, 0);            // -
+	if (i == 4) return pack(0, 7, 0, 7);            // =
+	if (i == 5) return pack(0, 2, 7, 2);            // +
+	if (i == 6) return pack(5, 2, 5, 2);            // *
+	if (i == 7) return pack(5, 7, 5, 7);            // #
+	if (i == 8) return pack(7, 5, 7, 5);            // %
+	return pack(7, 5, 7, 7);                        // @
 }
 
 // How far c sits along the line from Deep Moss to `to` (0..1), and how far off
@@ -55,7 +57,7 @@ void fragment() {
 	vec2 cell = CELL * px;
 	vec2 gpix = floor(FRAGCOORD.xy / px);
 	vec2 id = floor(gpix / CELL);
-	ivec2 gp = ivec2(gpix - id * CELL) - ivec2(0, 1);
+	ivec2 gp = ivec2(gpix - id * CELL);
 
 	// Brightness alone can't tell a translucent Pale Jade telegraph from the
 	// solid Sapphire Core player, so each sample is split by which green it is
@@ -85,10 +87,10 @@ void fragment() {
 		float f = smoothstep(0.04, 0.19, avg.x);
 		if (hash(id) < f * 0.6) {
 			float h = hash(id * 1.7);
-			if (h < 0.4) g = pack(0, 0, 0, 0, 4);          // .
-			else if (h < 0.7) g = pack(0, 0, 0, 4, 8);     // ,
-			else if (h < 0.9) g = pack(0, 4, 0, 4, 0);     // :
-			else g = pack(4, 4, 0, 0, 0);                  // '
+			if (h < 0.4) g = pack(0, 0, 0, 2);             // .
+			else if (h < 0.7) g = pack(0, 0, 2, 4);        // ,
+			else if (h < 0.9) g = pack(0, 2, 0, 2);        // :
+			else g = pack(2, 2, 0, 0);                     // '
 			col = mix(MOSS, CORE, 0.3 + 0.4 * f);
 		}
 	} else {
@@ -98,10 +100,12 @@ void fragment() {
 		bool jade = peak.y > peak.x;
 		float d = jade ? mix(avg.y, peak.y, 0.45) : mix(avg.x, peak.x, 0.45);
 		g = ramp(clamp(int(d * 9.0) + 1, 1, 9));
-		col = jade ? JADE : CORE;
+		// small glyphs are dense for their size, so the light end of the ramp
+		// is also dimmed: floor texture recedes, the rigs keep full green
+		col = jade ? JADE : mix(MOSS, CORE, smoothstep(0.1, 0.7, d) * 0.6 + 0.4);
 	}
 
-	bool on = gp.x >= 0 && gp.x < 5 && gp.y >= 0 && gp.y < 5
-		&& ((g >> ((4 - gp.y) * 5 + (4 - gp.x))) & 1) == 1;
+	bool on = gp.x < 3 && gp.y < 4
+		&& ((g >> ((3 - gp.y) * 3 + (2 - gp.x))) & 1) == 1;
 	COLOR = vec4(on ? col : MOSS, 1.0);
 }

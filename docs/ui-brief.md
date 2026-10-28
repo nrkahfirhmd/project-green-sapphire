@@ -62,7 +62,7 @@ offsets, no shared style. Design one coherent interface for these screens.
 
 ### Look and feel
 
-- The world behind the UI is ASCII: glyphs on a 6 × 7 unit grid, with density
+- The world behind the UI is ASCII: glyphs on a 4 × 5 unit grid, with density
   standing in for brightness. The UI layer sits on top, crisp and not
   converted. You may echo the ASCII world (monospace type, box-drawing frames,
   glyph-built ornaments) or deliberately contrast it. Choose one and apply it
