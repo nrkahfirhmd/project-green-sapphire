@@ -18,12 +18,14 @@ const BOSSES := {
 	1: {"name": "THE TURNKEY", "boss": "res://scripts/bosses/turnkey.gd", "env": "res://scripts/envs/treasure_env.gd", "floor": "octagon", "radius": 28.0},
 	2: {"name": "THE PENDULUM", "boss": "res://scripts/bosses/pendulum.gd", "env": "res://scripts/envs/library_env.gd", "floor": "hall", "radius": 0.0},
 	3: {"name": "THE PRISM", "boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
+	4: {"name": "THE HOURGLASS", "boss": "res://scripts/bosses/hourglass.gd", "env": "res://scripts/envs/desert_env.gd", "floor": "round", "radius": 40.0},
 }
 const DEFAULT_CELL := 3
 const PICKUP_DIST := 50.0
 
 var arena_rect: Rect2            # bounding box of the arena; scenery lays out around it
 var arena_poly: PackedVector2Array   # the walkable floor itself
+var floor_scale := 1.0           # the Hourglass's sand shrinks the floor toward its centre
 var boss: CharacterBody2D
 var _shake := 0.0
 var _elapsed := 0.0
@@ -134,15 +136,28 @@ func _build_arena_poly(shape: String) -> void:
 				arena_poly.append(c + d * h * r)
 
 
+## The walkable floor right now: the outline, shrunk toward the middle while
+## the Hourglass's sand covers its edges.
+func _floor() -> PackedVector2Array:
+	if floor_scale >= 0.999:
+		return arena_poly
+	var c := arena_rect.get_center()
+	var out := PackedVector2Array()
+	for p in arena_poly:
+		out.append(c + (p - c) * floor_scale)
+	return out
+
+
 ## Nearest point on the arena floor: p itself when it is already inside.
 func clamp_to_arena(p: Vector2) -> Vector2:
-	if Geometry2D.is_point_in_polygon(p, arena_poly):
+	var poly := _floor()
+	if Geometry2D.is_point_in_polygon(p, poly):
 		return p
 	var best := p
 	var best_d := INF
-	var n := arena_poly.size()
+	var n := poly.size()
 	for i in n:
-		var q := Geometry2D.get_closest_point_to_segment(p, arena_poly[i], arena_poly[(i + 1) % n])
+		var q := Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % n])
 		var d := p.distance_squared_to(q)
 		if d < best_d:
 			best_d = d
