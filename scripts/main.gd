@@ -15,6 +15,7 @@ const JAIL := "res://scenes/hub.tscn"
 ## Which boss, scenery and floor shape each cell's fight uses. A fight started
 ## without a cell (from the editor or a check) is cell III's.
 const BOSSES := {
+	1: {"name": "THE TURNKEY", "boss": "res://scripts/bosses/turnkey.gd", "env": "res://scripts/envs/treasure_env.gd", "floor": "octagon", "radius": 28.0},
 	3: {"name": "THE PRISM", "boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
 }
 const DEFAULT_CELL := 3
