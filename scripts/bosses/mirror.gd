@@ -2,8 +2,9 @@ extends "res://scripts/bosses/boss_base.gd"
 ## The Mirror (gate V, the final boss). A giant Pale Jade reflection of the
 ## Swordsman that copies the player: every attack the player starts, it
 ## replays a moment later, aimed back at them, and every dodge it echoes as a
-## roll. Between echoes it winds up its own great swing. Spam one move and you
-## are fighting yourself.
+## roll. Between echoes it winds up its own great thrust. Spam one move and you
+## are fighting yourself. Like the player's rapier, every attack hits a strip
+## straight ahead rather than an arc.
 ##
 ## Phase 2: it splits. A decoy circles to the player's far side and copies
 ## every move; only the real one has the diamond on its face, and only the real
@@ -21,7 +22,7 @@ const ECHO_DELAY := 0.8
 const MOVE := 150.0
 const KEEP := 190.0
 const ROLL_SPEED := 700.0
-const GREAT := {"reach": 125.0, "arc_deg": 170.0}
+const GREAT := {"reach": 170.0, "width": 90.0}
 const SWAP_EVERY := 7.0
 # player.gd's State enum: FREE, DODGE, ATTACK
 const P_FREE := 0
@@ -197,11 +198,11 @@ func _strike() -> void:
 	state = S.STRIKE
 	_timer = 0.12
 	var reach := _reach()
-	var half := deg_to_rad(_arc() * 0.5)
+	var half_w := _width() * 0.5
 	_request_shake(10.0 if _atk != "light" else 5.0)
 	for from in _bodies():
-		var to := player_pos() - from
-		if to.length() <= reach and absf(_aim.angle_to(to)) <= half:
+		var q := Geometry2D.get_closest_point_to_segment(player_pos(), from, from + _aim * reach)
+		if q.distance_to(player_pos()) <= half_w + 16.0:      # +16 the player's own radius
 			hurt_player(1, from)
 			return
 
@@ -211,8 +212,9 @@ func _reach() -> float:
 	return base * SIZE
 
 
-func _arc() -> float:
-	return GREAT["arc_deg"] if _atk == "great" else real.ATTACKS[_atk]["arc_deg"]
+func _width() -> float:
+	var base: float = GREAT["width"] if _atk == "great" else real.ATTACKS[_atk]["width"]
+	return base * SIZE
 
 
 func _bodies() -> Array[Vector2]:
@@ -247,17 +249,16 @@ func _pose(p: CharacterBody2D, at: Vector2, face: Vector2, delta: float, moving:
 
 
 # --- draw ------------------------------------------------------------
-## The floor sector each body is about to swing through.
+## The floor strip each body is about to thrust through, growing as it winds up.
 func _draw() -> void:
 	if state != S.WINDUP:
 		return
-	var reach := _reach()
-	var half := deg_to_rad(_arc() * 0.5)
+	var reach := _reach() * (0.5 + 0.5 * eye_t)
+	var side := Vector2(-_aim.y, _aim.x) * _width() * 0.5
 	for from in _bodies():
-		var pts := PackedVector2Array([L(from)])
-		for k in 17:
-			pts.append(L(from) + Vector2(reach * (0.5 + 0.5 * eye_t), 0).rotated(_aim.angle() - half + 2.0 * half * k / 16.0))
-		draw_colored_polygon(pts, Color(Game.PALE_JADE, 0.1 + 0.3 * eye_t))
+		var a := L(from)
+		var b := a + _aim * reach
+		draw_colored_polygon(PackedVector2Array([a + side, b + side, b - side, a - side]), Color(Game.PALE_JADE, 0.1 + 0.3 * eye_t))
 
 
 ## The tell: only the real reflection has a diamond on its face.

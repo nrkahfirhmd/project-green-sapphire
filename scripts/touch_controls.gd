@@ -1,7 +1,11 @@
 extends Control
 ## On-screen controls (handoff screen 05): a floating analog stick on the
-## left, HEAVY / LIGHT / DODGE on the right, and the square pause button at
-## the top left. Every position is an offset from a safe-area corner.
+## left, HEAVY / LIGHT / DODGE on the right with the three abilities (RICOCHET,
+## BLINK, ULT) around them, and the square pause button at the top left. Every
+## position is an offset from a safe-area corner.
+##
+## RICOCHET is aimed like a slingshot: hold it and drag away from where you
+## want to go; the drag feeds the aim_* actions and letting go launches.
 ##
 ## These drive the same input actions the keyboard does, at analog strength, so
 ## Input.get_vector in player.gd reads the stick exactly like a gamepad and
@@ -22,6 +26,8 @@ const KNOB_RADIUS := 50.0
 const TOUCH_SLOP := 1.15        # thumbs are imprecise; accept a little outside the circle
 const PAUSE := Vector2(100, 100)
 const COOLDOWN_R := 53.0
+const DRAG_FULL := 90.0         # drag this far for a full-strength aim
+const COOLING := ["dodge", "ricochet", "blink"]   # buttons with a cooldown ring
 
 var locked := false             # set while input must not reach the game
 var _stick_touch := -1
@@ -32,8 +38,11 @@ var _held := {}                 # action -> frames held down
 var _release_q: Array = []
 var _over := false
 var _scale := {}                # action -> drawn scale, eased toward its target
-var _was_cooling := false
-var _ready_pop := 0.0           # dodge "ready" pop, 1 -> 0
+var _was_cooling := {}          # action -> was it cooling last frame
+var _pop := {}                  # action -> "ready" pop, 1 -> 0
+var _drag_touch := -1           # the touch dragging back on RICOCHET
+var _drag := Vector2.ZERO
+var _was_ult_ready := false
 
 
 func _ready() -> void:
@@ -67,6 +76,9 @@ func _buttons() -> Array:
 		{"a": "attack_heavy", "p": s.end - Vector2(130, 150), "r": 70.0, "t": "HEAVY"},
 		{"a": "attack_light", "p": s.end - Vector2(295, 77), "r": 60.0, "t": "LIGHT"},
 		{"a": "dodge", "p": s.end - Vector2(160, 322), "r": 58.0, "t": "DODGE"},
+		{"a": "blink", "p": s.end - Vector2(330, 250), "r": 52.0, "t": "BLINK"},
+		{"a": "ricochet", "p": s.end - Vector2(460, 120), "r": 52.0, "t": "RICOCHET"},
+		{"a": "ultimate", "p": s.end - Vector2(150, 480), "r": 52.0, "t": "ULT"},
 	]
 
 
@@ -88,6 +100,8 @@ func _input(event: InputEvent) -> void:
 			_on_release(event.index)
 	elif event is InputEventScreenDrag and event.index == _stick_touch:
 		_set_knob(event.position - _stick_origin)
+	elif event is InputEventScreenDrag and event.index == _drag_touch:
+		_set_drag(event.position)
 
 
 func _on_press(index: int, pos: Vector2) -> void:
@@ -110,9 +124,35 @@ func _tap(index: int, action: String) -> void:
 	_btn_touch[index] = action
 	Input.action_press(action)
 	_held[action] = 0
+	if action == "ricochet":
+		_drag_touch = index
+		_drag = Vector2.ZERO
+
+
+## Pulling back aims the other way, like a slingshot.
+func _set_drag(pos: Vector2) -> void:
+	var centre: Vector2 = _button("ricochet")["p"]
+	_drag = pos - centre
+	var aim := -_drag / DRAG_FULL
+	aim = aim.limit_length(1.0) if _drag.length() > 20.0 else Vector2.ZERO
+	_axis("aim_left", "aim_right", aim.x)
+	_axis("aim_up", "aim_down", aim.y)
+
+
+func _button(action: String) -> Dictionary:
+	for b in _buttons():
+		if b["a"] == action:
+			return b
+	return {}
 
 
 func _on_release(index: int) -> void:
+	if index == _drag_touch:
+		# the player latches the aim while the button is held, so it can go now
+		_drag_touch = -1
+		_drag = Vector2.ZERO
+		_axis("aim_left", "aim_right", 0.0)
+		_axis("aim_up", "aim_down", 0.0)
 	if index == _stick_touch:
 		_drop_stick()
 	elif _btn_touch.has(index):
@@ -172,18 +212,37 @@ func _process(delta: float) -> void:
 		var target := 0.94 if pressed.has(a) else 1.0
 		# 0.06 of scale over 0.06 s down, over 0.10 s back up
 		_scale[a] = move_toward(float(_scale.get(a, 1.0)), target, delta * (1.0 if target < 1.0 else 0.6))
-	# dodge pops when its cooldown runs out
-	var cooling := _dodge_cd() > 0.0
-	if _was_cooling and not cooling:
-		_ready_pop = 1.0
-	_was_cooling = cooling
-	_ready_pop = maxf(0.0, _ready_pop - delta / 0.12)
+	# a button pops when its cooldown runs out, and ULT when it becomes ready
+	for a in COOLING:
+		var cooling := _cd(a).x > 0.0
+		if _was_cooling.get(a, false) and not cooling:
+			_pop[a] = 1.0
+		_was_cooling[a] = cooling
+	var ult := _ult().x >= 1.0
+	if ult and not _was_ult_ready:
+		_pop["ultimate"] = 1.0
+	_was_ult_ready = ult
+	for a in _pop:
+		_pop[a] = maxf(0.0, float(_pop[a]) - delta / 0.12)
 	queue_redraw()
 
 
-func _dodge_cd() -> float:
-	var pl := get_tree().get_first_node_in_group("player")
-	return float(pl._dodge_cd) if pl and "_dodge_cd" in pl else 0.0
+func _player() -> Node:
+	return get_tree().get_first_node_in_group("player")
+
+
+## (left, total) for a button with a cooldown.
+func _cd(action: String) -> Vector2:
+	var pl := _player()
+	return pl.cooldown(action) if pl and pl.has_method("cooldown") else Vector2.ZERO
+
+
+## (charge 0..1, usable 0/1) for the ultimate.
+func _ult() -> Vector2:
+	var pl := _player()
+	if not (pl and "ult_charge" in pl):
+		return Vector2.ZERO
+	return Vector2(float(pl.ult_charge) / float(pl.ULT_COST), 1.0 if pl.ult_ready() else 0.0)
 
 
 # --- draw -------------------------------------------------------------
@@ -221,28 +280,38 @@ func _draw() -> void:
 		var p: Vector2 = b["p"]
 		var r: float = b["r"]
 		var down := pressed.has(a)
-		var sc := float(_scale.get(a, 1.0))
-		if a == "dodge" and _ready_pop > 0.0:
-			sc *= 1.0 + 0.08 * _ready_pop
+		var sc := float(_scale.get(a, 1.0)) * (1.0 + 0.08 * float(_pop.get(a, 0.0)))
+		var ring := (r - 5.0) * sc        # the cooldown arc sits 2 units inside the edge
 		r *= sc
 		var label_col := c
+		var cd := _cd(a) if COOLING.has(a) else Vector2.ZERO
+		var ult := _ult() if a == "ultimate" else Vector2(1, 1)
 		if locked:
 			_dashed_circle(p, r, Color(c, 0.3))
 			label_col = Color(c, 0.3)
 		elif down:
 			draw_circle(p, r, Color(c, 0.5))
 			label_col = UI.MOSS
-		elif a == "dodge" and _dodge_cd() > 0.0:
-			# cooldown: dim ring, and an arc sweeping clockwise from 12 o'clock
+		elif cd.x > 0.0 or ult.y < 1.0:
+			# cooling down (or the ultimate still charging): dim ring, and an arc
+			# sweeping clockwise from 12 o'clock as it comes back
 			draw_circle(p, r, Color(UI.MOSS, 0.45))
 			draw_arc(p, r, 0, TAU, 48, Color(c, 0.25), UI.STROKE)
-			var done := 1.0 - _dodge_cd() / 0.5
-			draw_arc(p, COOLDOWN_R * sc, -PI * 0.5, -PI * 0.5 + TAU * done, 48, c, 6.0)
+			var done := ult.x if a == "ultimate" else 1.0 - cd.x / maxf(cd.y, 0.01)
+			if done > 0.0:
+				draw_arc(p, ring, -PI * 0.5, -PI * 0.5 + TAU * clampf(done, 0.0, 1.0), 48, c, 6.0)
 			label_col = Color(c, 0.4)
 		else:
 			draw_circle(p, r, Color(UI.MOSS, 0.45))
 			draw_arc(p, r, 0, TAU, 48, Color(c, 0.6), UI.STROKE)
-		UI.text(self, p - Vector2(0, UI.text_height(18) * 0.5), b["t"], 18, label_col, 600, 0.12, 0)
+		var px := 18 if r > 56.0 else 14
+		UI.text(self, p - Vector2(0, UI.text_height(px) * 0.5), b["t"], px, label_col, 600, 0.12, 0)
+
+	# RICOCHET's pull: a line from the button to the thumb
+	if _drag_touch != -1 and _drag.length() > 20.0:
+		var from: Vector2 = _button("ricochet")["p"]
+		draw_line(from, from + _drag, Color(c, 0.6), UI.STROKE)
+		draw_circle(from + _drag, 8.0, Color(c, 0.6))
 
 
 func _dashed_circle(p: Vector2, r: float, col: Color) -> void:

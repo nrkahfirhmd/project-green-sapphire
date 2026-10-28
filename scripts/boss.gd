@@ -252,7 +252,8 @@ func _keep_in_arena() -> void:
 
 
 # --- damage in --------------------------------------------------------
-func take_hit(amount: int, from_pos: Vector2) -> void:
+## `pierce` is the player's ultimate; the Prism has no shield, so it changes nothing.
+func take_hit(amount: int, from_pos: Vector2, _pierce := false) -> void:
 	if state == State.DEAD:
 		return
 	hp = max(0, hp - amount)

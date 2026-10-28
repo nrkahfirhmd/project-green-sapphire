@@ -60,10 +60,11 @@ func _on_hit(_amount: int) -> void:
 	pass
 
 
-func take_hit(amount: int, from_pos: Vector2) -> void:
+## `pierce` (the player's ultimate) lands even while shielded.
+func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	if dead:
 		return
-	if not _can_be_hit():
+	if not pierce and not _can_be_hit():
 		_burst(from_pos.lerp(global_position, 0.6), Game.SAPPHIRE_CORE, 6)
 		_request_shake(2.0)
 		return
