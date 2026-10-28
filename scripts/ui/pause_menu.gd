@@ -78,6 +78,7 @@ func _process(_d: float) -> void:
 
 func open() -> void:
 	Haptics.play("tap")
+	Sfx.play("pause_open")
 	get_tree().paused = true
 	_caption.set_text(caption.call() if caption.is_valid() else "")
 	show()
@@ -98,6 +99,7 @@ func open() -> void:
 
 ## The sheet drops back 24 units as the overlay fades, then play resumes.
 func close() -> void:
+	Sfx.play("pause_close")
 	if _tw:
 		_tw.kill()
 	_tw = create_tween().set_parallel()

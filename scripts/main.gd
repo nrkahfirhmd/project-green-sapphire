@@ -65,6 +65,7 @@ func _ready() -> void:
 	player.position.x = vp.x * 0.5
 	cell = Game.current_boss if BOSSES.has(Game.current_boss) else DEFAULT_CELL
 	var spec: Dictionary = BOSSES[cell]
+	Sfx.ambience("cell%d" % cell)
 	_build_arena_poly(spec["floor"])
 	_spawn(spec)
 
@@ -225,6 +226,7 @@ func clamp_to_arena(p: Vector2) -> Vector2:
 func add_shake(amount: float) -> void:
 	_trauma = minf(1.0, _trauma + amount / 30.0)
 	Haptics.impact(amount / 20.0)
+	Sfx.impact(amount / 20.0)
 
 
 # camera punch-in: quick zoom spike, used on big hits and transitions
@@ -248,6 +250,7 @@ func spawn_ring(pos: Vector2, radius: float, color := Game.SAPPHIRE_CORE, dur :=
 # --- outcomes --------------------------------------------------------
 func _on_phase_changed(_phase: int) -> void:
 	Haptics.play("phase")
+	Sfx.play("phase", 0.0, 0.0)
 	add_shake(20.0)
 	punch(1.14, 0.12, 0.35)
 	spawn_ring(boss.global_position, 420.0, Game.PALE_JADE, 0.55)
@@ -256,6 +259,7 @@ func _on_phase_changed(_phase: int) -> void:
 
 func _on_player_died() -> void:
 	Haptics.play("death")
+	Sfx.play("death", 0.0, 0.0)
 	Game.slow_mo(0.35, 0.7)
 	spawn_ring(player.global_position, 220.0, Game.PALE_JADE, 0.6)
 	_finish(false)
@@ -265,6 +269,7 @@ func _on_player_died() -> void:
 ## is thrown out of the boss's body in an arc and bounces once on the floor.
 func _on_boss_died() -> void:
 	Haptics.play("boss_death")
+	Sfx.play("boss_death", 0.0, 0.0)
 	Game.slow_mo(0.3, 1.1)
 	punch(1.2, 0.15, 0.5)
 	for i in 3:
@@ -280,12 +285,14 @@ func _on_boss_died() -> void:
 
 func _on_crystal_landed() -> void:
 	Haptics.play("crystal_land")
+	Sfx.play("crystal_land")
 	spawn_ring(_crystal, 120.0, Game.PALE_JADE, 0.45)
 	spawn_burst(_crystal, Game.SAPPHIRE_CORE, 10, 160.0)
 
 
 func _take_crystal() -> void:
 	Haptics.play("pickup")
+	Sfx.play("pickup", 0.0, 0.0)
 	spawn_burst(_crystal, Game.PALE_JADE, 24, 320.0)
 	spawn_ring(_crystal, 200.0, Game.PALE_JADE, 0.5)
 	add_shake(10.0)
@@ -316,6 +323,7 @@ func _finish(win: bool) -> void:
 	_won = win
 	run_over.emit(win)
 	Haptics.play("win" if win else "lose")
+	Sfx.play("win" if win else "lose", 0.0, 0.0)
 	_pause.enabled = false
 	Game.hit_stop(0.15)
 	var flags := Game.record_win(cell, _elapsed, _hits_taken) if win else {}

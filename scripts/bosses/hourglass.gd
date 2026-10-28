@@ -123,9 +123,11 @@ func on_thrust(a: Vector2, b: Vector2, width: float) -> void:
 		# which side of the thrust line the hourglass is on picks the bulb
 		var side := 0 if (b - a).cross(global_position - a) > 0.0 else 1
 		cracks[side] += 1
+		sfx("crack")
 		_burst(global_position + Vector2(0, -90), Game.SAPPHIRE_CORE, 6)
 		if cracks[side] >= CRACKS_TO_SPILL:
 			cracks[side] = 0
+			sfx("spill")
 			_stun(SPILL_STUN)
 			_burst(global_position, Game.SAPPHIRE_CORE, 18)
 
@@ -135,6 +137,7 @@ func _flip() -> void:
 	_floor_goal = minf(1.0, _floor_goal + FLIP_GAIN)
 	_flip_to += PI
 	_request_shake(10.0)
+	sfx("flip")
 	_burst(global_position + Vector2(0, -90), Game.PALE_JADE, 16)
 	_stun(FLIP_STUN)
 
@@ -286,6 +289,7 @@ func _begin(k: String) -> void:
 
 func _activate() -> void:
 	state = S.ATTACK
+	sfx(kind)
 	_elapsed = 0.0
 	_travel = 0.0
 	match kind:

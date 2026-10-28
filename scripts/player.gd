@@ -14,7 +14,8 @@ extends CharacterBody2D
 ## The player is invulnerable while ricocheting, blinking or in the ultimate.
 ##
 ## Code-driven rig: upright 3/4 view, posed from facing, animated with tweens.
-## Every action is also felt: the patterns live in haptics.gd.
+## Every action is also felt and heard: the patterns live in haptics.gd, the
+## sounds in media/sfx/ (tools/make_sfx.py).
 
 signal died
 signal health_changed(current: int, max: int)
@@ -107,33 +108,18 @@ var _dead_t := -1.0          # seconds since death, -1 alive
 
 @onready var boss: Node = get_tree().get_first_node_in_group("boss")
 
-const SFX := {
-	"attack": preload("res://media/attack.mp3"),
-	"dodge": preload("res://media/dodge.mp3"),
-	"hit": preload("res://media/hit.mp3"),
-}
-var _sfx_players := {}
-
 
 func _ready() -> void:
 	add_to_group("player")
-	# one player per clip so a landing hit can overlap its own swing
-	for name in SFX:
-		var p := AudioStreamPlayer.new()
-		p.stream = SFX[name]
-		add_child(p)
-		_sfx_players[name] = p
 	health_changed.emit(hp, MAX_HP)
 
 
-func _play_sfx(name: String) -> void:
-	_sfx_players[name].play()
-
-
-## Felt only by the real player, not the Mirror's copies of this rig.
+## Felt and heard only for the real player, not the Mirror's copies of this
+## rig (the Mirror makes its own sounds).
 func _feel(pattern: String) -> void:
 	if is_in_group("player"):
 		Haptics.play(pattern)
+		Sfx.play(pattern)
 
 
 ## Drawing state. In _process rather than physics so the Mirror's puppets
@@ -266,7 +252,6 @@ func _start_dodge() -> void:
 	_roll = 0.0
 	_pop_visual(Vector2(1.35, 0.7))   # stretch along travel
 	_feel("dodge")
-	_play_sfx("dodge")
 	_burst(global_position, Game.SAPPHIRE_CORE, 8)
 	get_tree().create_timer(DODGE_IFRAME_TIME).timeout.connect(func(): invulnerable = false)
 
@@ -298,7 +283,6 @@ func _start_attack(name: String) -> void:
 	var s := 1.25 if name == "heavy" else 1.12
 	_pop_visual(Vector2(s, 2.0 - s))   # scale-pulse windup
 	_feel("swing_heavy" if name == "heavy" else "swing_light")
-	_play_sfx("attack")
 
 
 func _do_attack(delta: float) -> void:
@@ -432,7 +416,6 @@ func _start_ricochet(dir: Vector2) -> void:
 	_ghost_acc = 0.0
 	_pop_visual(Vector2(1.4, 0.65))
 	_feel("ricochet")
-	_play_sfx("dodge")
 	_burst(global_position, Game.SAPPHIRE_CORE, 10)
 	_ring(global_position, 110.0)
 
@@ -513,7 +496,6 @@ func _start_blink() -> void:
 	_walk_amp = 0.0
 	_pop_visual(Vector2(0.8, 1.2))
 	_feel("blink")
-	_play_sfx("attack")
 
 
 func _do_blink(delta: float) -> void:
@@ -565,7 +547,6 @@ func _start_ult() -> void:
 	_feel("ult_start")
 	_ring(boss.global_position, 300.0, Game.PALE_JADE, 0.5)
 	_request_punch(1.1)
-	_play_sfx("attack")
 
 
 ## Each cut starts on a circle round the boss and ends on the far side; the
@@ -593,7 +574,6 @@ func _do_ult(delta: float) -> void:
 	Game.hit_stop(0.04)
 	_request_shake(7.0)
 	_burst(centre, Game.PALE_JADE, 10)
-	_play_sfx("attack")
 	_phase_i += 1
 	_timer = ULT_EVERY
 
@@ -604,7 +584,6 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 	hp -= amount
 	_flash = 0.18
 	invulnerable = true
-	_play_sfx("hit")
 	_feel("hurt")
 	_hurt_t = 0.0
 	velocity = (global_position - from_pos).normalized() * 340.0

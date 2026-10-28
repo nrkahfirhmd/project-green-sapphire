@@ -245,6 +245,7 @@ func on_thrust(a: Vector2, b: Vector2, width: float) -> void:
 
 func _clash() -> void:
 	cracks += 1
+	sfx("clash")
 	_burst(global_position + _aim * 60.0, Game.PALE_JADE, 20)
 	_request_shake(14.0)
 	Game.hit_stop(0.1)
@@ -509,6 +510,7 @@ func _strike() -> void:
 	var reach := _reach()
 	var half_w := _width() * 0.5
 	_request_shake(10.0 if _atk != "light" else 5.0)
+	sfx(_atk)
 	for from in _bodies():
 		var q := Geometry2D.get_closest_point_to_segment(player_pos(), from, from + _aim * reach)
 		if q.distance_to(player_pos()) <= half_w + 16.0:

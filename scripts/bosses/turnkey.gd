@@ -128,6 +128,7 @@ func on_thrust(a: Vector2, b: Vector2, width: float) -> void:
 				_vel[i] = (global_position - keys[i]).normalized() * PARRY_SPEED
 				_burst(keys[i], Game.SAPPHIRE_CORE, 10)
 				_request_shake(6.0)
+				sfx("parry")
 			K.DIAL:
 				if _aligned(i):
 					_open_t = OPEN_TIME
@@ -155,6 +156,7 @@ func _knock(i: int, dir: Vector2) -> void:
 	_ktime[i] = KNOCK_TIME
 	_burst(keys[i], Game.SAPPHIRE_CORE, 8)
 	_request_shake(4.0)
+	sfx("knock")
 	var out := 0
 	for k in KEYS:
 		if _mode[k] == K.KNOCK:
@@ -166,6 +168,7 @@ func _knock(i: int, dir: Vector2) -> void:
 			if _mode[k] == K.KNOCK:
 				_ktime[k] = maxf(_ktime[k], OPEN_TIME)
 		_request_shake(10.0)
+		sfx("unlock")
 
 
 func _aligned(i: int) -> bool:
@@ -202,6 +205,7 @@ func _think(delta: float) -> void:
 				state = S.ATTACK
 				_elapsed = 0.0
 				_fire_t = 0.0
+				sfx(kind)
 				_request_shake(5.0)
 		S.ATTACK:
 			_elapsed += delta
@@ -304,6 +308,7 @@ func _attack(delta: float) -> void:
 						_mode[i] = K.FLY
 						_vel[i] = (player_pos() - keys[i]).normalized() * KEY_SPEED
 						shots -= 1
+				sfx("fire")
 				_fire_t = spd(VOLLEY_EVERY)
 			var waiting := false
 			for i in KEYS:

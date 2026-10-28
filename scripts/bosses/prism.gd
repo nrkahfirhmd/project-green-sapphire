@@ -301,6 +301,7 @@ func _begin(k: String) -> void:
 
 func _activate() -> void:
 	state = S.ATTACK
+	sfx(kind)
 	_elapsed = 0.0
 	_travel = 0.0
 	_request_shake(6.0)

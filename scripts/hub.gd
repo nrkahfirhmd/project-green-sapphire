@@ -75,6 +75,8 @@ func _ready() -> void:
 	doors[5] = {"cell": Rect2(vp.x * 0.5 - GATE_W * 0.5, hall.end.y, GATE_W, 120.0),
 		"mouth": Vector2(vp.x * 0.5, hall.end.y - 70.0)}
 
+	Sfx.ambience("jail")
+
 	# back from a fight: stand in front of the cell it came from
 	var from := Game.current_boss
 	player.global_position = doors[from].mouth if doors.has(from) else altar + Vector2(-240.0, 0.0)
@@ -141,6 +143,7 @@ func _process(delta: float) -> void:
 		if not _gate_felt and _flying.is_empty():      # after the last sapphire lands
 			_gate_felt = true
 			Haptics.play("gate")       # the bars grinding down into the floor
+			Sfx.play("gate")
 		if _gate_felt:
 			_gate_open = move_toward(_gate_open, 1.0, delta * 0.7)
 	for id in _flying.keys():
@@ -168,15 +171,18 @@ func _set_sapphires() -> void:
 		Game.crystals[id] = "placed"
 		_flying[id] = 0.0              # lifted off the player's head; lands in _landed
 		Haptics.play("tap")
+		Sfx.play("fly")
 
 
 ## A sapphire has flown into its socket on the altar.
 func _landed(id: int) -> void:
 	Haptics.play("place")
+	Sfx.play("place")
 	spawn_burst(_socket(id), Game.SAPPHIRE_CORE, 18, 260.0)
 	spawn_ring(altar, 260.0, Game.SAPPHIRE_CORE, 0.5)
 	if id != 5 and _gate_unlocked():
 		_lamp_pulse = 0.9              # the only Jade moment outside a fight
+		Sfx.play("lamp")
 	if id == 5:
 		_show_ending()
 
@@ -187,6 +193,7 @@ func _check_doors() -> void:
 			_leaving = true
 			Game.current_boss = id
 			Haptics.play("door")
+			Sfx.play("door")
 			Game.go(FIGHT)
 			return
 

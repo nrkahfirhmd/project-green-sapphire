@@ -74,6 +74,7 @@ func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 		_request_shake(2.0)
 		_recoil(from_pos, 5.0)
 		Haptics.play("blocked")
+		Sfx.play("blocked")
 		return
 	hp = maxi(0, hp - amount)
 	_flash = 0.12
@@ -102,7 +103,14 @@ func phases() -> Array:
 func telegraph(kind: String) -> void:
 	telegraph_started.emit(kind)
 	Haptics.play("telegraph")
+	Sfx.play("telegraph")
 	_pop_visual(Vector2(0.88, 1.14))
+
+
+## This boss's own sound: "<script name>_<what>", e.g. sfx("riposte") on the
+## Pendulum plays pendulum_riposte. Attacks call it with their kind as they fire.
+func sfx(what: String) -> void:
+	Sfx.play(get_script().resource_path.get_file().get_basename() + "_" + what)
 
 
 ## Phase 2 runs every timing faster.

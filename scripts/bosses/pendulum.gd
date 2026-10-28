@@ -170,6 +170,7 @@ func _riposte(at: Vector2) -> void:
 	velocity = Vector2.ZERO
 	_burst(at, Game.PALE_JADE, 16)
 	_request_shake(12.0)
+	sfx("riposte")
 	Game.hit_stop(0.1)
 
 
@@ -292,6 +293,7 @@ func _windup(delta: float) -> void:
 
 func _activate() -> void:
 	state = S.ATTACK
+	sfx(kind)
 	_phase_t = 0.0
 	_period = spd(1.4)
 	_dropped = 0

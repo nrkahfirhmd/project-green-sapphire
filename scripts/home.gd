@@ -19,6 +19,7 @@ var _t := 0.0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	Sfx.ambience("home")
 
 	var col := W.vbox(28)
 	# caption flanked by two lines

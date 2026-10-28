@@ -213,6 +213,7 @@ func go(path: String) -> void:
 	if _fading:
 		return
 	_fading = true
+	Sfx.play("fade", 0.0, 0.0)
 	var layer := CanvasLayer.new()
 	layer.layer = 100                  # over the ASCII pass, so the fade is a clean fill
 	var veil := ColorRect.new()

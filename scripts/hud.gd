@@ -137,6 +137,7 @@ func _process(delta: float) -> void:
 		if _beat >= 1.0:
 			_beat = 0.0
 			Haptics.play("heartbeat")
+			Sfx.play("heartbeat", 0.0, 0.0)
 	else:
 		_beat = 0.0
 	if _intro >= 0.0:
@@ -144,6 +145,7 @@ func _process(delta: float) -> void:
 		_intro += delta
 		if was < 0.15 and _intro >= 0.15:
 			Haptics.play("intro")       # the boss's name lands
+			Sfx.play("intro")
 		if was < 1.4 and _intro >= 1.4:
 			intro_released.emit()
 		if _intro >= 1.6:

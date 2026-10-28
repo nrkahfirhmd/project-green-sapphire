@@ -130,6 +130,7 @@ func _tap(index: int, action: String) -> void:
 	if not_ready and _player() != null:
 		_deny[action] = 1.0
 		Haptics.play("denied")
+		Sfx.play("denied")
 	if action == "ricochet":
 		_drag_touch = index
 		_drag = Vector2.ZERO

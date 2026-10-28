@@ -64,6 +64,7 @@ func _set_haptic(on: bool, save := true) -> void:
 	if save:
 		Game.set_haptic(on)
 		Haptics.play("toggle")       # felt only when switching on: the proof it works
+		Sfx.play("toggle")
 
 
 ## A label left-aligned in a row that otherwise centres its text.
