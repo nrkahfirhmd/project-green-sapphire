@@ -76,10 +76,16 @@ func _stick_reads_as_an_analog_vector(tc) -> void:
 	assert(v == Vector2.ZERO, "stick still reading %s after release" % v)
 
 
+## Touch events arrive in window pixels and Godot maps them into the stretched
+## viewport, so fake ones are placed the same way a real finger would be.
+func _screen(pos: Vector2) -> Vector2:
+	return get_viewport().get_final_transform() * pos
+
+
 func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 	var e := InputEventScreenTouch.new()
 	e.index = index
-	e.position = pos
+	e.position = _screen(pos)
 	e.pressed = pressed
 	Input.parse_input_event(e)
 
@@ -87,5 +93,5 @@ func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 func _drag(index: int, pos: Vector2) -> void:
 	var e := InputEventScreenDrag.new()
 	e.index = index
-	e.position = pos
+	e.position = _screen(pos)
 	Input.parse_input_event(e)

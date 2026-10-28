@@ -18,10 +18,10 @@ y_sort_enabled = true
 script = ExtResource("1")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=832162337]
-position = Vector2(800, 450)
+position = Vector2(975, 450)
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1063222280]
-position = Vector2(800, 740)
+position = Vector2(975, 740)
 motion_mode = 1
 script = ExtResource("2")
 

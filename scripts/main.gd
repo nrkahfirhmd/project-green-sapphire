@@ -46,6 +46,7 @@ func _ready() -> void:
 	arena_rect = Rect2(ARENA_MARGIN.x, ARENA_TOP,
 		vp.x - ARENA_MARGIN.x * 2.0, vp.y - ARENA_TOP - ARENA_MARGIN.y)
 	camera.position = vp * 0.5
+	player.position.x = vp.x * 0.5
 	var spec: Dictionary = BOSSES.get(Game.current_boss, BOSSES[DEFAULT_CELL])
 	_build_arena_poly(spec["floor"])
 	_spawn(spec)
