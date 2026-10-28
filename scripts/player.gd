@@ -86,6 +86,7 @@ var _idle_t := 0.0           # idle-breathing phase
 var _face_x := 1.0           # horizontal mirror; keeps its last side when facing straight up/down
 var _roll := 0.0             # dodge-roll spin, radians
 var ult_charge := 0          # 0..ULT_COST
+var _pull := Vector2.ZERO     # quicksand's pull this frame
 var _rico_cd := 0.0
 var _blink_cd := 0.0
 var _aim := Vector2.ZERO     # latched ricochet aim while its button is held
@@ -168,7 +169,16 @@ func _do_free(delta: float) -> void:
 	var dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if dir != Vector2.ZERO:
 		facing = dir.normalized()
-	velocity = dir.normalized() * SPEED if dir != Vector2.ZERO else velocity.move_toward(Vector2.ZERO, SPEED * 0.35)
+	var own := velocity - _pull      # last frame's pull isn't the player's own speed
+	own = dir.normalized() * SPEED if dir != Vector2.ZERO else own.move_toward(Vector2.ZERO, SPEED * 0.35)
+	# ground the boss has made treacherous: sand slows, quicksand pulls
+	_pull = Vector2.ZERO
+	if _boss_alive():
+		if boss.has_method("slow_at"):
+			own *= float(boss.slow_at(global_position))
+		if boss.has_method("pull_at"):
+			_pull = boss.pull_at(global_position)
+	velocity = own + _pull
 
 	# walk squash-and-stretch
 	if velocity.length() > 30.0:
