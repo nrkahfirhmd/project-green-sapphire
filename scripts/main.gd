@@ -5,8 +5,11 @@ const ARENA_MARGIN := Vector2(90, 80)
 # Extra headroom at the top: under the tilted camera the boss body draws about
 # 150px above its own floor position, and it must not run off screen.
 const ARENA_TOP := 260.0
+const ARENA_SEED := 11
+const ARENA_FACETS := 10
 
-var arena_rect: Rect2
+var arena_rect: Rect2            # bounding box of the arena; scenery lays out around it
+var arena_poly: PackedVector2Array   # the walkable floor itself
 var _shake := 0.0
 var _elapsed := 0.0
 var _hits_taken := 0
@@ -24,6 +27,7 @@ func _ready() -> void:
 	arena_rect = Rect2(ARENA_MARGIN.x, ARENA_TOP,
 		vp.x - ARENA_MARGIN.x * 2.0, vp.y - ARENA_TOP - ARENA_MARGIN.y)
 	camera.position = vp * 0.5
+	_build_arena_poly()
 
 	player.hit_taken.connect(func(): _hits_taken += 1)
 	player.died.connect(_on_player_died)
@@ -46,6 +50,41 @@ func _process(delta: float) -> void:
 		camera.offset = camera.offset.lerp(Vector2.ZERO, 0.3)
 
 	queue_redraw()
+
+
+## A gem-cut outline inside arena_rect: an ellipse broken into irregular
+## facets, with a couple of deep cuts on the left and right. Fixed seed, so the
+## floor is the same every run.
+func _build_arena_poly() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = ARENA_SEED
+	var c := arena_rect.get_center()
+	var h := arena_rect.size * 0.5
+	arena_poly = PackedVector2Array()
+	for i in ARENA_FACETS:
+		var a := TAU * (i + rng.randf_range(-0.3, 0.3)) / ARENA_FACETS
+		var d := Vector2(cos(a), sin(a))
+		var r := rng.randf_range(0.78, 1.0)
+		# deep cuts only at the sides, so the spawn points top and bottom stay well inside
+		if absf(d.x) > 0.7 and rng.randf() < 0.55:
+			r = rng.randf_range(0.5, 0.62)
+		arena_poly.append(c + d * h * r)
+
+
+## Nearest point on the arena floor: p itself when it is already inside.
+func clamp_to_arena(p: Vector2) -> Vector2:
+	if Geometry2D.is_point_in_polygon(p, arena_poly):
+		return p
+	var best := p
+	var best_d := INF
+	var n := arena_poly.size()
+	for i in n:
+		var q := Geometry2D.get_closest_point_to_segment(p, arena_poly[i], arena_poly[(i + 1) % n])
+		var d := p.distance_squared_to(q)
+		if d < best_d:
+			best_d = d
+			best = q
+	return best
 
 
 func add_shake(amount: float) -> void:
@@ -113,5 +152,5 @@ func _draw() -> void:
 	# arena floor + border. The floor is lifted a little off the pure Deep Moss
 	# clear colour so the ground shadows under both fighters have something to
 	# darken; still only the two locked greens, mixed.
-	draw_rect(arena_rect, Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13))
-	draw_rect(arena_rect, Color(Game.SAPPHIRE_CORE, 0.5), false, 2.0)
+	draw_colored_polygon(arena_poly, Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13))
+	draw_polyline(arena_poly + PackedVector2Array([arena_poly[0]]), Color(Game.SAPPHIRE_CORE, 0.5), 2.0)

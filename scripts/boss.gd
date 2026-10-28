@@ -96,6 +96,7 @@ func _physics_process(delta: float) -> void:
 		_check_body_contact()
 
 	move_and_slide()
+	_keep_in_arena()
 	queue_redraw()
 
 
@@ -176,7 +177,6 @@ func _do_attack(delta: float) -> void:
 		"charge":
 			velocity = _aim * ATK["charge"]["speed"]
 			_try_charge_hit()
-			_bounce_walls()
 	if _t <= 0.0:
 		state = State.RECOVER
 		_t = _spd(ATK[_kind]["recover"])
@@ -237,16 +237,18 @@ func _try_charge_hit() -> void:
 		_request_shake(10.0)
 
 
-func _bounce_walls() -> void:
+## Every state, not just the charge: the drift back after a charge can carry
+## the boss off the floor too. A charge that hits the edge bounces off it.
+func _keep_in_arena() -> void:
 	var m := get_tree().current_scene
-	if m and "arena_rect" in m:
-		var r: Rect2 = m.arena_rect
-		if global_position.x < r.position.x or global_position.x > r.end.x:
-			_aim.x = -_aim.x
-		if global_position.y < r.position.y or global_position.y > r.end.y:
-			_aim.y = -_aim.y
-		global_position.x = clampf(global_position.x, r.position.x, r.end.x)
-		global_position.y = clampf(global_position.y, r.position.y, r.end.y)
+	if not (m and m.has_method("clamp_to_arena")):
+		return
+	var c: Vector2 = m.clamp_to_arena(global_position)
+	if c == global_position:
+		return
+	if state == State.ATTACK and _kind == "charge":
+		_aim = _aim.bounce((global_position - c).normalized())
+	global_position = c
 
 
 # --- damage in --------------------------------------------------------

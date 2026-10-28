@@ -265,10 +265,8 @@ func _burst(pos: Vector2, col: Color, n := 10) -> void:
 
 func _clamp_to_arena() -> void:
 	var m := get_tree().current_scene
-	if m and "arena_rect" in m:
-		var r: Rect2 = m.arena_rect
-		global_position.x = clampf(global_position.x, r.position.x, r.end.x)
-		global_position.y = clampf(global_position.y, r.position.y, r.end.y)
+	if m and m.has_method("clamp_to_arena"):
+		global_position = m.clamp_to_arena(global_position)
 
 
 # --- rig: upright 3/4 view, origin on the ground at the feet ------------
