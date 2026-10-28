@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<sc-if value="{{ show }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;pointer-events:none;z-index:50">
+  <div style="position:absolute;left:135px;top:0;bottom:0;border-left:2px dashed rgba(105,160,98,.55)"></div>
+  <div style="position:absolute;left:1813px;top:0;bottom:0;border-left:2px dashed rgba(105,160,98,.55)"></div>
+  <div style="position:absolute;left:0;right:0;top:852px;border-top:2px dashed rgba(105,160,98,.55)"></div>
+  <div style="position:absolute;left:143px;top:858px;font:400 14px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.8)">SAFE L 135</div>
+  <div style="position:absolute;right:143px;top:858px;font:400 14px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.8)">SAFE R 135 · BOTTOM 48</div>
+  <sc-if value="{{ left }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;left:10px;top:390px;width:36px;height:120px;border:2px dashed rgba(105,160,98,.7);border-radius:18px;box-sizing:border-box"></div>
+    <div style="position:absolute;left:54px;top:440px;font:600 14px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.8)">NOTCH</div>
+  </sc-if>
+  <sc-if value="{{ right }}">
+    <div style="position:absolute;right:10px;top:390px;width:36px;height:120px;border:2px dashed rgba(105,160,98,.7);border-radius:18px;box-sizing:border-box"></div>
+    <div style="position:absolute;right:54px;top:440px;font:600 14px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.8)">NOTCH</div>
+  </sc-if>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;side&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;left&quot;,&quot;right&quot;],&quot;default&quot;:&quot;left&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;show&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const side = this.props.side ?? 'left';
+    return { show: this.props.show ?? true, left: side === 'left', right: side === 'right' };
+  }
+}
+</script>
+</body>
+</html>
