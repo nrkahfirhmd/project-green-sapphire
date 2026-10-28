@@ -7,6 +7,7 @@ var _p_max := 4
 var _b_hp := 12
 var _b_max := 12
 var _phase := 1
+var boss_name := ""          # set by Main for the cell being fought
 var _tele := 0.0            # telegraph warning flash timer
 var _pulse_t := 0.0
 var _elapsed := 0.0
@@ -78,9 +79,11 @@ func _draw() -> void:
 		else:
 			draw_rect(r, Game.DEEP_MOSS)
 		draw_rect(r, Game.SAPPHIRE_CORE, false, 1.0)
+	draw_string(ThemeDB.fallback_font, Vector2(x0, y0 + 34),
+		boss_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Game.SAPPHIRE_CORE)
 	if _phase == 2:
 		draw_string(ThemeDB.fallback_font, Vector2(x0, y0 + 34),
-			"PHASE 2", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Game.PALE_JADE)
+			"PHASE 2", HORIZONTAL_ALIGNMENT_RIGHT, total, 14, Game.PALE_JADE)
 
 	# --- player HP pips (bottom left) ---
 	for i in _p_max:

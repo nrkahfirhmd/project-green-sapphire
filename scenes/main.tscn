@@ -1,71 +1,59 @@
-[gd_scene load_steps=10 format=3 uid="uid://b0greensapphire01"]
+[gd_scene format=3 uid="uid://b7jrj5afbs5i"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/player.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/boss.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/hud.gd" id="4"]
-[ext_resource type="Script" path="res://scripts/touch_controls.gd" id="5"]
-[ext_resource type="Shader" path="res://shaders/ascii.gdshader" id="6"]
-[ext_resource type="Script" path="res://scripts/arena_env.gd" id="7"]
+[ext_resource type="Script" uid="uid://lv1d82ar17t5" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://2ftqk8bmna02" path="res://scripts/player.gd" id="2"]
+[ext_resource type="Script" uid="uid://cgmm2075q70wk" path="res://scripts/hud.gd" id="4"]
+[ext_resource type="Script" uid="uid://c323pia66eos8" path="res://scripts/touch_controls.gd" id="5"]
+[ext_resource type="Shader" uid="uid://dut268hygyfqv" path="res://shaders/ascii.gdshader" id="6"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 22.0
-
-[sub_resource type="CircleShape2D" id="CircleShape2D_boss"]
-radius = 46.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ascii"]
 shader = ExtResource("6")
 shader_parameter/pixel = 1.0
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=327585578]
 y_sort_enabled = true
 script = ExtResource("1")
 
-[node name="Environment" type="Node2D" parent="."]
-script = ExtResource("7")
-
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=832162337]
 position = Vector2(800, 450)
 
-[node name="Boss" type="CharacterBody2D" parent="."]
-position = Vector2(800, 430)
-motion_mode = 1
-script = ExtResource("3")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss"]
-shape = SubResource("CircleShape2D_boss")
-
-[node name="Player" type="CharacterBody2D" parent="."]
+[node name="Player" type="CharacterBody2D" parent="." unique_id=1063222280]
 position = Vector2(800, 740)
 motion_mode = 1
 script = ExtResource("2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=368795090]
 shape = SubResource("CircleShape2D_player")
 
-[node name="Ascii" type="CanvasLayer" parent="."]
+[node name="Ascii" type="CanvasLayer" parent="." unique_id=975609344]
 
-[node name="Screen" type="ColorRect" parent="Ascii"]
+[node name="Screen" type="ColorRect" parent="Ascii" unique_id=1451075560]
 material = SubResource("ShaderMaterial_ascii")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=1785534246]
 layer = 2
 
-[node name="HUD" type="Control" parent="UI"]
+[node name="HUD" type="Control" parent="UI" unique_id=885134776]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("4")
 
-[node name="TouchControls" type="Control" parent="UI"]
+[node name="TouchControls" type="Control" parent="UI" unique_id=5910940]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("5")

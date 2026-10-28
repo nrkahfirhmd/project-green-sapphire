@@ -12,10 +12,17 @@ const ARENA_TOP := 260.0
 const ARENA_SEED := 11
 const ARENA_FACETS := 10
 const JAIL := "res://scenes/hub.tscn"
+## Which boss, scenery and floor shape each cell's fight uses. A fight started
+## without a cell (from the editor or a check) is cell III's.
+const BOSSES := {
+	3: {"name": "THE PRISM", "boss": "res://scripts/boss.gd", "env": "res://scripts/arena_env.gd", "floor": "gem", "radius": 46.0},
+}
+const DEFAULT_CELL := 3
 const PICKUP_DIST := 50.0
 
 var arena_rect: Rect2            # bounding box of the arena; scenery lays out around it
 var arena_poly: PackedVector2Array   # the walkable floor itself
+var boss: CharacterBody2D
 var _shake := 0.0
 var _elapsed := 0.0
 var _hits_taken := 0
@@ -26,7 +33,6 @@ var _cam_tw: Tween
 
 @onready var camera: Camera2D = $Camera2D
 @onready var player: CharacterBody2D = $Player
-@onready var boss: CharacterBody2D = $Boss
 
 
 func _ready() -> void:
@@ -35,7 +41,10 @@ func _ready() -> void:
 	arena_rect = Rect2(ARENA_MARGIN.x, ARENA_TOP,
 		vp.x - ARENA_MARGIN.x * 2.0, vp.y - ARENA_TOP - ARENA_MARGIN.y)
 	camera.position = vp * 0.5
-	_build_arena_poly()
+	var spec: Dictionary = BOSSES.get(Game.current_boss, BOSSES[DEFAULT_CELL])
+	_build_arena_poly(spec["floor"])
+	_spawn(spec)
+	$UI/HUD.boss_name = spec["name"]
 
 	player.hit_taken.connect(func(): _hits_taken += 1)
 	player.died.connect(_on_player_died)
@@ -66,23 +75,61 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## A gem-cut outline inside arena_rect: an ellipse broken into irregular
-## facets, with a couple of deep cuts on the left and right. Fixed seed, so the
-## floor is the same every run.
-func _build_arena_poly() -> void:
+## The boss and its scenery for this cell, built in code so one fight scene
+## serves every cell. The boss stands a little behind the middle of the floor.
+func _spawn(spec: Dictionary) -> void:
+	boss = CharacterBody2D.new()
+	boss.name = "Boss"
+	boss.motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	boss.position = Vector2(arena_rect.get_center().x, arena_rect.position.y + 170.0)
+	boss.set_script(load(spec["boss"]))
+	if spec["radius"] > 0.0:
+		var shape := CollisionShape2D.new()
+		shape.shape = CircleShape2D.new()
+		shape.shape.radius = spec["radius"]
+		boss.add_child(shape)
+	add_child(boss)
+	var env := Node2D.new()
+	env.name = "Environment"
+	env.set_script(load(spec["env"]))
+	add_child(env)
+
+
+## The floor's outline inside arena_rect. "gem" is the Prism's ten irregular
+## facets with deep cuts at the sides; the rest are plainer shapes that suit
+## their rooms. Fixed seed, so a room's floor is the same every run.
+func _build_arena_poly(shape: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = ARENA_SEED
 	var c := arena_rect.get_center()
 	var h := arena_rect.size * 0.5
 	arena_poly = PackedVector2Array()
-	for i in ARENA_FACETS:
-		var a := TAU * (i + rng.randf_range(-0.3, 0.3)) / ARENA_FACETS
-		var d := Vector2(cos(a), sin(a))
-		var r := rng.randf_range(0.78, 1.0)
-		# deep cuts only at the sides, so the spawn points top and bottom stay well inside
-		if absf(d.x) > 0.7 and rng.randf() < 0.55:
-			r = rng.randf_range(0.5, 0.62)
-		arena_poly.append(c + d * h * r)
+	match shape:
+		"octagon":
+			for i in 8:
+				var a := TAU * (i + 0.5) / 8.0
+				arena_poly.append(c + Vector2(cos(a), sin(a)) * h)
+		"hall":
+			var r := arena_rect.grow(-6.0)
+			var k := 80.0
+			arena_poly = PackedVector2Array([r.position + Vector2(k, 0), Vector2(r.end.x - k, r.position.y),
+				Vector2(r.end.x, r.position.y + k), Vector2(r.end.x, r.end.y - k), r.end - Vector2(k, 0),
+				Vector2(r.position.x + k, r.end.y), Vector2(r.position.x, r.end.y - k), r.position + Vector2(0, k)])
+		"round", "circle":
+			var n := 24 if shape == "round" else 40
+			for i in n:
+				var a := TAU * i / n
+				var r := rng.randf_range(0.9, 1.0) if shape == "round" else 0.98
+				arena_poly.append(c + Vector2(cos(a), sin(a)) * h * r)
+		_:
+			for i in ARENA_FACETS:
+				var a := TAU * (i + rng.randf_range(-0.3, 0.3)) / ARENA_FACETS
+				var d := Vector2(cos(a), sin(a))
+				var r := rng.randf_range(0.78, 1.0)
+				# deep cuts only at the sides, so the spawn points top and bottom stay well inside
+				if absf(d.x) > 0.7 and rng.randf() < 0.55:
+					r = rng.randf_range(0.5, 0.62)
+				arena_poly.append(c + d * h * r)
 
 
 ## Nearest point on the arena floor: p itself when it is already inside.
@@ -131,7 +178,7 @@ func _on_player_died() -> void:
 
 func _on_boss_died() -> void:
 	punch(1.2, 0.15, 0.5)
-	_crystal = boss.global_position
+	_crystal = clamp_to_arena(boss.global_position)
 	# the sapphire drops where the boss died; its body must not keep the player off it
 	boss.collision_layer = 0
 	boss.collision_mask = 0
