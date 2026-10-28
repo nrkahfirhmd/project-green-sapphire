@@ -132,6 +132,9 @@ func _on_player_died() -> void:
 func _on_boss_died() -> void:
 	punch(1.2, 0.15, 0.5)
 	_crystal = boss.global_position
+	# the sapphire drops where the boss died; its body must not keep the player off it
+	boss.collision_layer = 0
+	boss.collision_mask = 0
 
 
 func _take_crystal() -> void:
