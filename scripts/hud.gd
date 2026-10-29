@@ -36,6 +36,9 @@ var _spare_pop := 0.0            # 1 -> 0 as an emptied spare square settles
 var _pulse := 0.0
 var _jolt := 0.0                 # boss bar knocked sideways by a hit, 1 -> 0
 var _beat := 0.0                 # last-heart heartbeat clock
+var _hurt := 0.0                 # Jade edge flash when the player is hit, 1 -> 0
+var _hint := ""                  # a one-line teaching caption, bottom centre
+var _hint_t := 0.0
 var elapsed := 0.0
 var timing := false
 var _intro := -1.0               # seconds into the intro, -1 when not showing
@@ -56,10 +59,17 @@ func _ready() -> void:
 		boss.health_changed.connect(_on_b_health)
 
 
+## Show a short teaching caption for a few seconds (bosses call this).
+func hint(text: String) -> void:
+	_hint = text
+	_hint_t = 3.5
+
+
 func _on_p_health(cur: int, mx: int) -> void:
 	if cur < _p_hp:
 		_lost = cur
 		_lost_t = 0.0
+		_hurt = 1.0
 	_p_hp = cur
 	_p_max = mx
 
@@ -130,6 +140,8 @@ func _process(delta: float) -> void:
 	_lost_t += delta
 	_spare_pop = maxf(0.0, _spare_pop - delta / 0.3)
 	_jolt = maxf(0.0, _jolt - delta / 0.25)
+	_hurt = maxf(0.0, _hurt - delta / 0.35)    # scaled delta: it holds through the hit-stop
+	_hint_t = maxf(0.0, _hint_t - delta)
 	_pulse += delta
 	# down to the last heart: it thumps, and the phone with it, once a second
 	if _p_hp == 1 and timing and _result == null:
@@ -289,6 +301,23 @@ class ResultScreen extends Control:
 func _draw() -> void:
 	var s := UI.safe(self)
 	var c := UI.CORE
+
+	# a teaching caption, fading in and out
+	if _hint_t > 0.0 and _hint != "":
+		var ha := minf(1.0, minf(_hint_t / 0.4, (3.5 - _hint_t) / 0.25))
+		var hy := size.y - 210.0
+		var hw := UI.text_width(_hint, 26, 600, 0.12) + 60.0
+		draw_rect(Rect2(size.x * 0.5 - hw * 0.5, hy - 14.0, hw, UI.text_height(26) + 28.0), Color(UI.MOSS, 0.85 * ha))
+		UI.text(self, Vector2(size.x * 0.5, hy), _hint, 26, Color(UI.JADE, ha), 600, 0.12, 0)
+
+	# a hit: thick Jade edges that hold through the freeze, then fade
+	if _hurt > 0.0:
+		var hw := 40.0 * _hurt
+		var hc := Color(UI.JADE, 0.55 * _hurt)
+		draw_rect(Rect2(0, 0, size.x, hw), hc)
+		draw_rect(Rect2(0, size.y - hw, size.x, hw), hc)
+		draw_rect(Rect2(0, 0, hw, size.y), hc)
+		draw_rect(Rect2(size.x - hw, 0, hw, size.y), hc)
 
 	# low-HP bands, edge to edge: 2 hearts pulse slowly, 1 heart fast
 	if _p_hp > 0 and _p_hp <= 2 and _result == null:

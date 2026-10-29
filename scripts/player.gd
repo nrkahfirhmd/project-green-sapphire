@@ -6,12 +6,17 @@ extends CharacterBody2D
 ## Abilities, all available from the start:
 ##   Ricochet (6 s cooldown): aim by holding the button and dragging back, let
 ##     go to launch. The player becomes the projectile, passing through the
-##     boss and bouncing off the edge of the floor for up to 3 s.
+##     boss and bouncing off the edge of the floor: two bounces at most, the
+##     first bending towards the boss. Press it again to stop early.
 ##   Blink (3 s cooldown): a thrust that teleports BLINK_DIST along facing,
 ##     cutting anything on the line.
 ##   Ultimate (charged by damage dealt): six blink-slashes straight through
 ##     the boss from all sides. Its cuts pierce shields.
 ## The player is invulnerable while ricocheting, blinking or in the ultimate.
+##
+## Thrusts lunge only to close the gap to a boss in reach, never past it, so
+## they aren't a way to move. A dodge cancels a thrust's recovery, and one
+## that slips through a hit (a perfect dodge) slows time and charges the ult.
 ##
 ## Code-driven rig: upright 3/4 view, posed from facing, animated with tweens.
 ## Every action is also felt and heard: the patterns live in haptics.gd, the
@@ -28,6 +33,10 @@ const DODGE_SPEED := 620.0
 const DODGE_TIME := 0.18
 const DODGE_IFRAME_TIME := 0.20
 const DODGE_COOLDOWN := 0.5
+const PERFECT_SLOW := 0.35       # time scale after a perfect dodge
+const PERFECT_TIME := 0.4
+const HURT_IFRAMES := 0.8        # long enough that one attack's next wave can't chain a second hit
+const HURT_STOP := 0.14
 
 const RIG := 1.5               # rig scale; boss body is ~144 tall, bible wants 2:1
 const OUTLINE := 3.0           # Deep Moss backing width; keeps overlapping parts readable
@@ -36,15 +45,18 @@ const GHOST_LIFE := 0.30       # afterimage fade time
 const GHOST_EVERY := 0.028     # afterimage spawn interval during dodge
 
 # Shared thrust skeleton: windup -> active -> recovery. A thrust hits a strip
-# `reach` long and `width` wide straight along facing, lunging `lunge` units.
+# `reach` long and `width` wide straight along facing. It lunges up to `lunge`
+# units to bring a boss ahead into reach, or just `step` when none is.
 const ATTACKS := {
-	"light": {"windup": 0.06, "active": 0.07, "recovery": 0.16, "dmg": 1, "reach": 120.0, "width": 34.0, "lunge": 30.0, "shake": 4.0, "hitstop": 0.05, "punch": 0.0},
-	"heavy": {"windup": 0.26, "active": 0.10, "recovery": 0.40, "dmg": 3, "reach": 200.0, "width": 70.0, "lunge": 80.0, "shake": 11.0, "hitstop": 0.10, "punch": 1.09},
+	"light": {"windup": 0.06, "active": 0.07, "recovery": 0.16, "dmg": 1, "reach": 120.0, "width": 34.0, "lunge": 26.0, "step": 6.0, "shake": 4.0, "hitstop": 0.05, "punch": 0.0},
+	"heavy": {"windup": 0.26, "active": 0.10, "recovery": 0.40, "dmg": 3, "reach": 200.0, "width": 70.0, "lunge": 60.0, "step": 20.0, "shake": 11.0, "hitstop": 0.10, "punch": 1.09},
 }
 const BOSS_R := 40.0           # rough boss radius for every hit test
 
-const RICOCHET_SPEED := 1100.0
-const RICOCHET_TIME := 3.0
+const RICOCHET_SPEED := 950.0
+const RICOCHET_TIME := 1.4
+const RICOCHET_BOUNCES := 2      # the next wall ends it
+const RICOCHET_HOMING := 0.6     # how far the first bounce turns towards the boss
 const RICOCHET_COOLDOWN := 6.0
 const RICOCHET_DMG := 1
 const RICOCHET_REHIT := 0.3    # one hit per pass through the boss
@@ -69,7 +81,22 @@ enum State { FREE, DODGE, ATTACK, RICOCHET, BLINK, ULT }
 var hp := MAX_HP
 var state: State = State.FREE
 var facing := Vector2.DOWN
-var invulnerable := false
+# Invulnerability: held on by an ability state (ricochet, blink, ult), or
+# granted until a time (dodge, hurt). Grants only ever extend it, so a dodge
+# can't cut the hurt i-frames short.
+var invulnerable: bool:
+	get:
+		return _inv_hold or _clock < _inv_until
+	set(v):
+		_inv_hold = v
+		if not v:
+			_inv_until = 0.0
+var _inv_hold := false
+var _inv_until := 0.0
+var _clock := 0.0             # physics time, frozen through hit-stops
+var _perfect_done := false    # this dodge has already paid out
+var _lunge := 0.0             # the current thrust's lunge
+var _bounces := 0
 
 var _dodge_cd := 0.0
 var _atk_name := ""
@@ -137,7 +164,7 @@ func _process(delta: float) -> void:
 	_lean = lerpf(_lean, lean_to, 1.0 - exp(-delta * 10.0))
 	_hurt_t += delta
 	# blink out every other 0.05 s while the hurt i-frames last
-	self_modulate.a = 0.35 if _hurt_t < 0.45 and fmod(_hurt_t, 0.1) < 0.05 else 1.0
+	self_modulate.a = 0.35 if _hurt_t < HURT_IFRAMES and fmod(_hurt_t, 0.1) < 0.05 else 1.0
 	if _dead_t >= 0.0:
 		_dead_t += delta
 		_flash = maxf(0.0, _flash - delta)     # physics, which fades it, has stopped
@@ -145,6 +172,7 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_clock += delta
 	_dodge_cd = max(0.0, _dodge_cd - delta)
 	if (_rico_cd > 0.0 and _rico_cd <= delta) or (_blink_cd > 0.0 and _blink_cd <= delta):
 		_feel("ready")              # an ability came back
@@ -247,7 +275,8 @@ func _start_dodge() -> void:
 	state = State.DODGE
 	_dodge_cd = DODGE_COOLDOWN
 	_atk_timer = DODGE_TIME
-	invulnerable = true
+	_grant(DODGE_IFRAME_TIME)
+	_perfect_done = false
 	velocity = facing * DODGE_SPEED
 	_walk_amp = 0.0
 	_ghost_acc = 0.0
@@ -255,7 +284,22 @@ func _start_dodge() -> void:
 	_pop_visual(Vector2(1.35, 0.7))   # stretch along travel
 	_feel("dodge")
 	_burst(global_position, Game.SAPPHIRE_CORE, 8)
-	get_tree().create_timer(DODGE_IFRAME_TIME).timeout.connect(func(): invulnerable = false)
+
+
+func _grant(t: float) -> void:
+	_inv_until = maxf(_inv_until, _clock + t)
+
+
+## A hit that met the dodge's i-frames: time slows, the ult charges.
+func _perfect_dodge(from_pos: Vector2) -> void:
+	_perfect_done = true
+	if not is_in_group("player"):
+		return
+	Game.slow_mo(PERFECT_SLOW, PERFECT_TIME)
+	ult_charge = mini(ULT_COST, ult_charge + 1)
+	_feel("ready")
+	_ring(global_position, 150.0, Game.PALE_JADE, 0.35)
+	_burst(global_position.lerp(from_pos, 0.3), Game.PALE_JADE, 10)
 
 
 func _do_dodge(delta: float) -> void:
@@ -280,6 +324,7 @@ func _start_attack(name: String) -> void:
 	_atk_timer = ATTACKS[name]["windup"]
 	_atk_dur = _atk_timer
 	_atk_hit_done = false
+	_lunge = _lunge_for(ATTACKS[name])
 	velocity = Vector2.ZERO
 	_walk_amp = 0.0
 	var s := 1.25 if name == "heavy" else 1.12
@@ -287,10 +332,29 @@ func _start_attack(name: String) -> void:
 	_feel("swing_heavy" if name == "heavy" else "swing_light")
 
 
+## How far this thrust lunges: enough to bring a boss straight ahead into
+## reach (never past it), or a small step when there is nothing to reach.
+func _lunge_for(a: Dictionary) -> float:
+	if not _boss_alive():
+		return float(a["step"])
+	var to: Vector2 = boss.global_position - global_position
+	var along := to.dot(facing)
+	var side := absf(to.cross(facing))
+	var reach := float(a["reach"])
+	if along <= 0.0 or side > float(a["width"]) * 0.5 + BOSS_R + 20.0 or along > reach + float(a["lunge"]) + BOSS_R:
+		return float(a["step"])
+	return clampf(along - reach * 0.6, 0.0, float(a["lunge"]))
+
+
 func _do_attack(delta: float) -> void:
 	var a: Dictionary = ATTACKS[_atk_name]
+	# a dodge cancels the recovery: committing to a thrust is never a trap
+	if _atk_phase == "recovery" and Input.is_action_just_pressed("dodge") and _dodge_cd <= 0.0 and is_in_group("player"):
+		_atk_name = ""
+		_start_dodge()
+		return
 	if _atk_phase == "active":
-		velocity = facing * float(a["lunge"]) / float(a["active"])   # the lunge
+		velocity = facing * _lunge / float(a["active"])   # the lunge
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, SPEED * 4.0 * delta)
 	_atk_timer -= delta
@@ -324,7 +388,7 @@ func _atk_progress() -> float:
 func _resolve_hit(a: Dictionary) -> void:
 	if not _boss_alive():
 		return
-	var start := global_position - facing * float(a["lunge"])   # from where the lunge began
+	var start := global_position - facing * _lunge   # from where the lunge began
 	var end := global_position + facing * float(a["reach"])
 	_thrust_parts(start, end, float(a["width"]))
 	if not _on_line(start, end, float(a["width"])):
@@ -412,6 +476,7 @@ func _start_ricochet(dir: Vector2) -> void:
 	facing = _move_dir
 	_timer = RICOCHET_TIME
 	_rico_cd = RICOCHET_COOLDOWN
+	_bounces = 0
 	invulnerable = true
 	velocity = Vector2.ZERO
 	_walk_amp = 0.0
@@ -428,9 +493,13 @@ func _do_ricochet(delta: float) -> void:
 	var p := global_position + _move_dir * RICOCHET_SPEED * delta
 	var c := _floor_point(p)
 	if c != p:
-		# off the edge: reflect about the wall and carry on
-		_move_dir = _move_dir.bounce((p - c).normalized())
-		facing = _move_dir
+		# off the edge: reflect about the wall and carry on, or stop at the last
+		_bounces += 1
+		if _bounces > RICOCHET_BOUNCES:
+			_timer = 0.0
+		else:
+			_move_dir = _bounce_dir(_move_dir, (p - c).normalized(), c, _bounces == 1)
+			facing = _move_dir
 		_bounced(c)
 	elif _boss_alive() and boss.has_method("deflects"):
 		# a boss's solid parts (the Turnkey's key barrier) bounce it too
@@ -451,11 +520,26 @@ func _do_ricochet(delta: float) -> void:
 	if _ghost_acc <= 0.0:
 		_ghosts.append({"pos": global_position, "f": facing.angle(), "age": 0.0})
 		_ghost_acc = GHOST_EVERY
+	if Input.is_action_just_pressed("ricochet") and is_in_group("player"):
+		_timer = 0.0                  # pressed again: stop here
 	if _timer <= 0.0:
 		state = State.FREE
 		_roll = 0.0
+		velocity = _move_dir * SPEED * 0.5
 		_pop_visual(Vector2(0.85, 1.15))
-		get_tree().create_timer(0.15).timeout.connect(func(): invulnerable = false)
+		invulnerable = false
+		_grant(0.15)
+
+
+## A wall bounce; the first one turns part of the way towards the boss, so a
+## ricochet aimed roughly right comes back through it.
+func _bounce_dir(d: Vector2, n: Vector2, at: Vector2, first: bool) -> Vector2:
+	var out := d.bounce(n)
+	if first and _boss_alive():
+		var to: Vector2 = (boss.global_position - at).normalized()
+		if out.dot(to) > 0.0:
+			out = out.slerp(to, RICOCHET_HOMING).normalized()
+	return out
 
 
 ## A ricochet bounce: squash against the wall, a small shockwave, a tap.
@@ -468,18 +552,22 @@ func _bounced(at: Vector2) -> void:
 
 
 ## Where a ricochet launched along `dir` would go, bounces included.
-func ricochet_path(dir: Vector2, length := 700.0) -> PackedVector2Array:
+func ricochet_path(dir: Vector2, length := RICOCHET_SPEED * RICOCHET_TIME) -> PackedVector2Array:
 	var pts := PackedVector2Array([global_position])
 	var p := global_position
 	var d := dir.normalized()
 	var step := 16.0
 	var travelled := 0.0
+	var bounces := 0
 	while travelled < length:
 		var n := p + d * step
 		var c := _floor_point(n)
 		if c != n:
-			d = d.bounce((n - c).normalized())
+			bounces += 1
 			pts.append(c)
+			if bounces > RICOCHET_BOUNCES:
+				return pts
+			d = _bounce_dir(d, (n - c).normalized(), c, bounces == 1)
 		p = c
 		travelled += step
 	pts.append(p)
@@ -524,6 +612,7 @@ func _do_blink(delta: float) -> void:
 	else:
 		state = State.FREE
 		invulnerable = false
+		_grant(0.1)
 		_pop_visual(Vector2(1.15, 0.85))
 
 
@@ -560,7 +649,8 @@ func _do_ult(delta: float) -> void:
 		return
 	if _phase_i >= ULT_SLASHES or not _boss_alive():
 		state = State.FREE
-		get_tree().create_timer(0.3).timeout.connect(func(): invulnerable = false)
+		invulnerable = false
+		_grant(0.3)
 		_pop_visual(Vector2(0.85, 1.15))
 		_feel("ult_end")
 		_ring(global_position, 260.0, Game.SAPPHIRE_CORE, 0.5)
@@ -581,22 +671,28 @@ func _do_ult(delta: float) -> void:
 
 
 func take_hit(amount: int, from_pos: Vector2) -> void:
-	if invulnerable or hp <= 0:
+	if hp <= 0:
+		return
+	if invulnerable:
+		if state == State.DODGE and not _perfect_done:
+			_perfect_dodge(from_pos)
 		return
 	hp -= amount
 	_flash = 0.18
-	invulnerable = true
+	_grant(HURT_IFRAMES)
 	_feel("hurt")
 	_hurt_t = 0.0
 	velocity = (global_position - from_pos).normalized() * 340.0
 	_pop_visual(Vector2(1.3, 0.75))
 	_request_shake(9.0)
-	_request_punch(1.06)
-	Game.hit_stop(0.06)
+	_request_punch(1.08)
+	# a hard freeze, then a beat of slow motion to see what hit you
+	Game.hit_stop(HURT_STOP)
+	if hp > 0 and is_in_group("player"):
+		get_tree().create_timer(HURT_STOP, true, false, true).timeout.connect(func(): Game.slow_mo(0.5, 0.25))
 	_burst(global_position, Game.PALE_JADE, 14)
 	hit_taken.emit()
 	health_changed.emit(hp, MAX_HP)
-	get_tree().create_timer(0.45).timeout.connect(func(): invulnerable = false)
 	if hp <= 0:
 		_dead_t = 0.0
 		_hurt_t = 99.0

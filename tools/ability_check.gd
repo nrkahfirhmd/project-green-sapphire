@@ -2,7 +2,8 @@ extends Node
 ## Smoke check for the rapier kit: the thrusts reach what they claim, the
 ## ricochet bounces and stays on the floor, the blink teleports along facing
 ## and cuts through the boss, and the ultimate lands all six cuts, through
-## the Turnkey's shield too.
+## the Turnkey's shield too. A dodge mustn't cut the hurt i-frames short,
+## and one that meets a hit while invulnerable pays out a perfect dodge.
 ##
 ##   /Applications/Godot.app/Contents/MacOS/Godot --path . tools/ability_check.tscn
 
@@ -12,9 +13,32 @@ func _ready() -> void:
 	await _ricochet()
 	await _blink()
 	await _ultimate()
+	await _iframes()
 	Game.current_boss = 0
-	print("ability_check: thrusts, ricochet, blink and ultimate all behave")
+	print("ability_check: thrusts, ricochet, blink, ultimate and i-frames all behave")
 	get_tree().quit()
+
+
+func _iframes() -> void:
+	var f := await _fight(3)
+	var p: Node = f[1]
+	var b: Node = f[2]
+	p.global_position = b.global_position + Vector2(-400, 0)
+	var hp: int = p.hp
+	p.take_hit(1, p.global_position + Vector2(10, 0))
+	assert(p.hp == hp - 1, "the hit didn't land")
+	await _frames(12)                   # past the hurt hit-stop
+	p._start_dodge()
+	await _frames(30)                   # the dodge's own i-frames are long over
+	assert(p.invulnerable, "a dodge cut the hurt i-frames short")
+	await _frames(40)
+	assert(not p.invulnerable, "hurt i-frames never ended")
+	p._start_dodge()
+	var charge: int = p.ult_charge
+	p.take_hit(1, p.global_position + Vector2(10, 0))
+	assert(p.hp == hp - 1 and p.ult_charge == charge + 1, "a perfect dodge didn't pay out")
+	f[0].queue_free()
+	await get_tree().process_frame
 
 
 ## A fight in `cell` with the intro skipped and the boss frozen in place.
@@ -72,17 +96,19 @@ func _ricochet() -> void:
 	p._start_ricochet(Vector2.RIGHT)
 	var first_dir: Vector2 = p._move_dir
 	var turned := false
+	var was_inv := false
 	for i in 120:
 		await get_tree().physics_frame
+		if i == 5:
+			was_inv = p.invulnerable
 		# on a bounce it sits exactly on the edge, so allow for rounding
 		assert(main.clamp_to_arena(p.global_position).distance_to(p.global_position) < 1.0, "ricochet left the floor")
 		if p._move_dir != first_dir:
 			turned = true
 	assert(turned, "ricochet never bounced")
 	assert(b.hp < hp, "ricochet passed the boss without hitting it")
-	assert(p.invulnerable, "ricochet should be invulnerable while it runs")
-	await _frames(120)
-	assert(p.state == 0, "ricochet outlasted its 3 s")
+	assert(was_inv, "ricochet should be invulnerable while it runs")
+	assert(p.state == 0, "ricochet outlasted its time")
 	main.queue_free()
 	await get_tree().process_frame
 
