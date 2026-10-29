@@ -13,8 +13,9 @@ extends "res://scripts/bosses/boss_base.gd"
 ##
 ## Attacks
 ##   Slam: a 100 degree cone, reach 300, leaving a line of spikes along it.
-##   Spectrum: three (later four) rings in quick succession, each with one gap
-##     at its own angle. Step through the gaps or dodge the rings.
+##   Spectrum: three (later four) rings in succession, each with one gap a
+##     little round from the last, so there's always a path to walk. They come
+##     further apart than the dodge's cooldown, so dodging each ring works too.
 ##   Charge: a dash that bounces off the floor's edge, leaving shards behind.
 ##     It crashes into any older spike and is stuck there for STUCK_TIME.
 ##   Beam: the eye fires a straight beam; passing through a spike, it bends
@@ -53,9 +54,10 @@ const SLAM_SPIKES := [100.0, 170.0, 240.0, 310.0]
 const RING_FROM := 40.0
 const RING_TO := 560.0
 const RING_TIME := 0.55
-const RING_EVERY := 0.35
+const RING_EVERY := 0.6           # > the dodge cooldown (0.5), at every phase
 const RING_BAND := 34.0
-const RING_GAP := 50.0           # degrees
+const RING_GAP := 65.0           # degrees
+const GAP_STEP := 70.0           # most a gap moves round from the ring before
 const CHARGE_SPEED := 1250.0
 const CHARGE_HIT := 62.0
 const CHARGE_SHARD_EVERY := 90.0
@@ -261,6 +263,14 @@ func _think(delta: float) -> void:
 		global_position = c
 
 
+func _cancel() -> void:
+	state = S.IDLE
+	kind = ""
+	_chain_left = 0
+	_wait = 0.5
+	_spots.clear()
+
+
 func _pick() -> String:
 	var pool := ["slam", "spectrum", "charge", "beam"]
 	if phase >= 2:
@@ -285,9 +295,11 @@ func _begin(k: String) -> void:
 		"spectrum":
 			_gaps.clear()
 			_ring_hit.clear()
+			var g := (player_pos() - global_position).angle() + randf_range(-PI, PI)
 			for i in int(_tune()["rings"]):
-				_gaps.append(randf() * TAU)
+				_gaps.append(g)
 				_ring_hit.append(false)
+				g += deg_to_rad(randf_range(-GAP_STEP, GAP_STEP))
 		"shardfall":
 			_spots.clear()
 			_spots.append(player_pos())
