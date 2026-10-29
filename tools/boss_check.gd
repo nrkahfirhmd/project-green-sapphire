@@ -54,7 +54,7 @@ func _fight(id: int) -> void:
 			b.take_hit(3, b.global_position + Vector2(0, 40))
 	await get_tree().create_timer(0.3).timeout
 
-	var tag := "cell %d (%s)" % [id, main.BOSSES[id]["name"]]
+	var tag := "cell %d (%s)" % [id, Game.BOSS_NAMES[id]]
 	print("  %s: %d telegraphs, %d hits on the player, died after %.1fs" % [tag, tells[0], hits[0], t])
 	assert(died[0], "%s never died" % tag)
 	assert(tells[0] >= 2, "%s barely attacked" % tag)

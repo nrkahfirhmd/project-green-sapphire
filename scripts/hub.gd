@@ -1,6 +1,7 @@
 extends Node2D
-## The jail: the hub between fights. Cells I and II are cut into the back wall,
-## III and IV into the front wall, and the great gate V into the right wall.
+## The jail: the hub between fights, laid out as in the design handoff. Cells
+## I-IV stand in a row along the back wall; the great gate V is cut into the
+## middle of the front wall, clear of the touch buttons.
 ## Walk into an open cell to fight the boss held there; beat it and it drops a
 ## sapphire. Carry the sapphire back to the altar in the middle of the hall.
 ## With four sapphires set, the gate lifts on the final boss.
@@ -11,20 +12,35 @@ extends Node2D
 ## Drawn like the arena: palette shapes under the ASCII shader. The jail itself
 ## is drawn once and never redrawn; only torches, the eyes in the cells, the
 ## altar's sapphires, the gate and the dust are redrawn each frame, on _live.
+##
+## Light: moonlight falls through two barred windows high in the back wall
+## and lies across the floor with the bars' shadows in it; torches throw
+## pools of light; the altar glows brighter with every sapphire set. Vines
+## creep down the walls, water stains run under the windows, drips fall into
+## puddles, cobwebs fill the corners, and a vignette closes the edges in.
 
 const FIGHT := "res://scenes/main.tscn"
 const SEED := 3
-const WALL_TOP := 230.0          # back wall height; cells I-II are cut into it
+const WALL_TOP := 300.0          # back wall height; cells I-IV are cut into it
 const SIDE := 80.0               # left wall thickness
-const RIGHT := 150.0             # right wall thickness; gate V is cut into it
-const FRONT := 110.0             # front wall depth; cells III-IV are cut into it
-const CELL_W := 150.0
-const CELL_D := 120.0
+const RIGHT := 80.0              # right wall thickness
+const FRONT := 160.0             # front wall depth; gate V is cut into it
+const CELL_W := 240.0
+const CELL_D := 140.0            # cells span y 160-300; labels sit 26 inside the top
+# cell centres as fractions of the width: x 325 / 735 / 1215 / 1625 on 1950
+const CELL_X := [0.1667, 0.3769, 0.6231, 0.8333]
 const ALTAR_R := 92.0            # the altar is solid out to here
 const REACH := 150.0             # this close counts as standing at the altar
 const ENTER_DEPTH := 20.0        # how far into a cell before the fight starts
 const MOTES := 40
-const NUMERALS := ["", "I", "II", "III", "IV", "V"]
+const FLY_TIME := 0.5            # a sapphire's flight from the player to the altar
+const GATE_W := 230.0            # gate V spans x 860-1090 on the 1950 canvas
+const HOME := "res://scenes/home.tscn"
+const UI := preload("res://scripts/ui/ui.gd")
+const W := preload("res://scripts/ui/ui_widgets.gd")
+const Btn := preload("res://scripts/ui/ui_button.gd")
+const Pause := preload("res://scripts/ui/pause_menu.gd")
+const P := preload("res://scripts/paint.gd")
 
 var hall: Rect2                  # the walkable floor
 var altar: Vector2
@@ -41,14 +57,21 @@ var _rubble: Array = []          # {pts, a}: rock piles in the hall corners
 var _altar_poly := PackedVector2Array()
 var _altar_rim := PackedVector2Array()
 var _motes: Array = []           # {p, v, ph}
+var _windows: Array = []         # Rect2 barred windows high in the back wall
+var _vines: Array = []           # {pts, leaves}
+var _stains: Array = []          # Rect2 water stains
+var _puddles: Array = []         # {p, r}
+var _runes: Array = []           # PackedVector2Array marks round the altar
 
 var _live: Node2D
 var _t := 0.0
 var _gate_open := 0.0            # 0 shut .. 1 bars fully raised
-var _flash := 0.0                # Pale Jade flash the moment the gate unlocks
+var _lamp_pulse := 0.0           # Jade lamp pulses when the gate unlocks, 0.9 s
+var _flying := {}                # sapphire id -> 0..1 through its flight onto the altar
+var _gate_felt := false          # the gate's rumble has played
 var _leaving := false
-var _hint: Label
-var _gate_label: Label
+var _hud: Control
+var _ending: Control
 
 @onready var player: CharacterBody2D = $Player
 
@@ -57,30 +80,36 @@ func _ready() -> void:
 	var vp := get_viewport_rect().size
 	hall = Rect2(SIDE, WALL_TOP, vp.x - SIDE - RIGHT, vp.y - WALL_TOP - FRONT)
 	altar = hall.get_center()
-	for id in [1, 2]:
-		var x: float = hall.position.x + hall.size.x * [0.15, 0.62][id - 1]
+	for id in [1, 2, 3, 4]:
+		var x: float = vp.x * CELL_X[id - 1]
 		doors[id] = {"cell": Rect2(x - CELL_W * 0.5, WALL_TOP - CELL_D, CELL_W, CELL_D),
 			"mouth": Vector2(x, WALL_TOP + 70.0)}
-	for id in [3, 4]:
-		var x: float = hall.position.x + hall.size.x * [0.2, 0.66][id - 3]
-		doors[id] = {"cell": Rect2(x - CELL_W * 0.5, hall.end.y, CELL_W, FRONT - 14.0),
-			"mouth": Vector2(x, hall.end.y - 70.0)}
-	# higher than the hall's middle, to keep it clear of the touch buttons
-	var gy := hall.position.y + hall.size.y * 0.36
-	doors[5] = {"cell": Rect2(hall.end.x, gy - 95.0, RIGHT - 34.0, 190.0),
-		"mouth": Vector2(hall.end.x - 80.0, gy)}
+	doors[5] = {"cell": Rect2(vp.x * 0.5 - GATE_W * 0.5, hall.end.y, GATE_W, 120.0),
+		"mouth": Vector2(vp.x * 0.5, hall.end.y - 70.0)}
+
+	Sfx.ambience("jail")
 
 	# back from a fight: stand in front of the cell it came from
 	var from := Game.current_boss
-	player.global_position = doors[from].mouth if doors.has(from) else Vector2(altar.x, hall.end.y - 90.0)
+	player.global_position = doors[from].mouth if doors.has(from) else altar + Vector2(-240.0, 0.0)
 	Game.current_boss = 0
 	_gate_open = 1.0 if _gate_unlocked() else 0.0
+	_gate_felt = _gate_unlocked()
 
 	_build(vp)
-	_make_labels(vp)
 	_live = Node2D.new()
 	_live.draw.connect(_draw_live)
 	add_child(_live)
+
+	if doors.has(from):
+		Game.ring(self, player.global_position, 140.0)    # stepping back out of the cell
+	_hud = HubHud.new(self)
+	$UI.add_child(_hud)
+	var pause := Pause.new()
+	pause.setup("HOME", HOME, func(): return "THE JAIL · %d / 4" % Game.crystals_placed())
+	$UI.add_child(pause)
+	if Game.crystals.get(5, "") == "placed":
+		_show_ending()
 
 
 # --- rules -----------------------------------------------------------
@@ -115,16 +144,28 @@ func spawn_burst(pos: Vector2, color: Color, n := 10, speed := 220.0) -> void:
 	Game.burst(self, pos, color, n, speed)
 
 
+func spawn_ring(pos: Vector2, radius: float, color := Game.SAPPHIRE_CORE, dur := 0.4) -> void:
+	Game.ring(self, pos, radius, color, dur)
+
+
 func _process(delta: float) -> void:
 	_t += delta
-	_flash = maxf(0.0, _flash - delta)
+	_lamp_pulse = maxf(0.0, _lamp_pulse - delta)
 	if _gate_unlocked():
-		_gate_open = move_toward(_gate_open, 1.0, delta * 0.7)
+		if not _gate_felt and _flying.is_empty():      # after the last sapphire lands
+			_gate_felt = true
+			Haptics.play("gate")       # the bars grinding down into the floor
+			Sfx.play("gate")
+		if _gate_felt:
+			_gate_open = move_toward(_gate_open, 1.0, delta * 0.7)
+	for id in _flying.keys():
+		_flying[id] += delta / FLY_TIME
+		if _flying[id] >= 1.0:
+			_flying.erase(id)
+			_landed(id)
 	if not _leaving:
 		_set_sapphires()
 		_check_doors()
-	_hint.text = _hint_text()
-	_gate_label.modulate.a = 1.0 if _gate_unlocked() else 0.4
 	var vp := get_viewport_rect().size
 	for m in _motes:
 		var p: Vector2 = m.p - Vector2(0, m.v * delta)
@@ -140,9 +181,22 @@ func _set_sapphires() -> void:
 		if Game.crystals[id] != "carried":
 			continue
 		Game.crystals[id] = "placed"
-		spawn_burst(_socket(id), Game.PALE_JADE, 18, 260.0)
-		if id != 5 and _gate_unlocked():
-			_flash = 0.7
+		_flying[id] = 0.0              # lifted off the player's head; lands in _landed
+		Haptics.play("tap")
+		Sfx.play("fly")
+
+
+## A sapphire has flown into its socket on the altar.
+func _landed(id: int) -> void:
+	Haptics.play("place")
+	Sfx.play("place")
+	spawn_burst(_socket(id), Game.SAPPHIRE_CORE, 18, 260.0)
+	spawn_ring(altar, 260.0, Game.SAPPHIRE_CORE, 0.5)
+	if id != 5 and _gate_unlocked():
+		_lamp_pulse = 0.9              # the only Jade moment outside a fight
+		Sfx.play("lamp")
+	if id == 5:
+		_show_ending()
 
 
 func _check_doors() -> void:
@@ -150,18 +204,17 @@ func _check_doors() -> void:
 		if _door_open(id) and doors[id].cell.grow(-ENTER_DEPTH).has_point(player.global_position):
 			_leaving = true
 			Game.current_boss = id
-			get_tree().change_scene_to_file.call_deferred(FIGHT)
+			Haptics.play("door")
+			Sfx.play("door")
+			Game.go(FIGHT)
 			return
 
 
-func _hint_text() -> String:
-	if Game.crystals.get(5, "") == "placed":
-		return "THE GREEN SAPPHIRE IS WHOLE"
-	if Game.crystals.values().has("carried"):
-		return "BRING THE SAPPHIRE TO THE ALTAR"
-	if _gate_unlocked():
-		return "THE GREAT GATE IS OPEN"
-	return "TAKE A SAPPHIRE FROM EVERY CELL     %d / 4" % Game.crystals_placed()
+func carried() -> int:
+	for id in Game.crystals:
+		if Game.crystals[id] == "carried":
+			return id
+	return 0
 
 
 ## Where sapphire `id` sits on the altar: I-IV round the rim, V in the middle.
@@ -264,6 +317,44 @@ func _build(vp: Vector2) -> void:
 	for i in MOTES:
 		_motes.append({"p": Vector2(rng.randf() * vp.x, rng.randf() * vp.y),
 			"v": rng.randf_range(6.0, 16.0), "ph": rng.randf() * TAU})
+	_build_dressing(rng, vp)
+
+
+## Windows, vines, stains, puddles and the altar's runes.
+func _build_dressing(rng: RandomNumberGenerator, vp: Vector2) -> void:
+	# two small barred windows between the middle cells and the outer ones
+	for f in [0.27, 0.73]:
+		var x: float = vp.x * f
+		if not _near_cell(Vector2(x, 70.0), 10.0):
+			var w := Rect2(x - 34.0, 40.0, 68.0, 54.0)
+			_windows.append(w)
+			_stains.append(Rect2(x - 20.0, 94.0, 40.0, rng.randf_range(80.0, 140.0)))
+			_pilasters = _pilasters.filter(func(pl: Rect2) -> bool: return not pl.grow(12.0).intersects(w))
+	for i in 9:
+		var x := rng.randf_range(0.0, vp.x)
+		if _near_cell(Vector2(x, 80.0), 20.0):
+			continue
+		var pts := PackedVector2Array()
+		var leaves := PackedVector2Array()
+		var p := Vector2(x, 0.0)
+		var drop := rng.randf_range(90.0, WALL_TOP - 30.0)
+		while p.y < drop:
+			pts.append(p)
+			p += Vector2(rng.randf_range(-6.0, 6.0), rng.randf_range(10.0, 16.0))
+			if rng.randf() < 0.45:
+				leaves.append(p)
+		_vines.append({"pts": pts, "leaves": leaves})
+	for i in 4:
+		var q := Vector2(rng.randf_range(hall.position.x + 80.0, hall.end.x - 80.0), rng.randf_range(hall.position.y + 60.0, hall.end.y - 40.0))
+		if q.distance_to(altar) > ALTAR_R * 2.4:
+			_puddles.append({"p": q, "r": rng.randf_range(30.0, 56.0)})
+	for i in 24:
+		var a := TAU * i / 24.0
+		var c := altar + Vector2(cos(a), sin(a) * 0.7) * (ALTAR_R * 1.62)
+		var mark := PackedVector2Array()
+		for k in 3:
+			mark.append(c + Vector2(rng.randf_range(-6.0, 6.0), rng.randf_range(-5.0, 5.0)))
+		_runes.append(mark)
 
 
 ## Brick courses filling `r`: rows of height `h`, brick widths in `w`.
@@ -287,36 +378,6 @@ func _near_cell(p: Vector2, margin: float) -> bool:
 	return false
 
 
-## Cell numerals and the hint line, as real text on the UI layer: through the
-## ASCII shader they would turn to noise.
-func _make_labels(vp: Vector2) -> void:
-	_hint = _label(26)
-	_hint.position = Vector2(0, 18)
-	_hint.size = Vector2(vp.x, 40)
-	for id in doors:
-		var r: Rect2 = doors[id].cell
-		var l := _label(30)
-		l.text = NUMERALS[id]
-		l.size = Vector2(120, 40)
-		var y := r.position.y - 44.0 if id < 3 else r.get_center().y - 20.0
-		if id == 5:
-			y = r.position.y - 84.0     # above the lamps
-		l.position = Vector2(r.get_center().x - 60.0, y)
-		if Game.crystals.has(id):
-			l.modulate.a = 0.35
-		if id == 5:
-			_gate_label = l
-
-
-func _label(px: int) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", px)
-	l.add_theme_color_override("font_color", Game.SAPPHIRE_CORE)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	$UI.add_child(l)
-	return l
-
-
 # --- draw ------------------------------------------------------------
 ## The static jail, drawn once.
 func _draw() -> void:
@@ -324,6 +385,24 @@ func _draw() -> void:
 	var vp := get_viewport_rect().size
 	for b in _bricks:
 		draw_rect(b.r, Color(c, b.a))
+	# the back wall falls into shadow towards the top
+	P.vband(self, Rect2(0, 0, vp.x, WALL_TOP * 0.6), 0.6, 0.0, Game.DEEP_MOSS)
+	for s in _stains:
+		P.gradient(self, PackedVector2Array([s.position, Vector2(s.end.x, s.position.y), Vector2(s.end.x - 8, s.end.y), Vector2(s.position.x + 8, s.end.y)]),
+			s.position, Vector2(s.position.x, s.end.y), 0.6, 0.0, Game.DEEP_MOSS)
+	for w in _windows:
+		draw_rect(w.grow(8), Color(c, 0.4))
+		draw_rect(w, Game.DEEP_MOSS)
+		P.vband(self, w, 0.36, 0.14)
+		var bx: float = w.position.x + 11.0
+		while bx < w.end.x:
+			draw_line(Vector2(bx, w.position.y), Vector2(bx, w.end.y), Game.DEEP_MOSS, 5.0)
+			bx += 15.0
+		draw_rect(Rect2(w.position.x - 12, w.end.y + 6, w.size.x + 24, 8), Color(c, 0.46))
+	for v in _vines:
+		draw_polyline(v.pts, Color(c, 0.36), 2.0)
+		for lf in v.leaves:
+			draw_colored_polygon(PackedVector2Array([lf, lf + Vector2(6, -3), lf + Vector2(9, 2), lf + Vector2(4, 4)]), Color(c, 0.42))
 	for pl in _pilasters:
 		draw_rect(pl, Game.DEEP_MOSS)
 		draw_rect(pl, Color(c, 0.3))
@@ -349,6 +428,38 @@ func _draw() -> void:
 		draw_line(s + Vector2(0, 8), s + Vector2(0, 30), Color(c, 0.5), 4.0)
 	for st in _straw:
 		draw_polyline(st, Color(c, 0.3), 2.0)
+	# torchlight pools on the wall and the floor below each torch
+	for s in _sconces:
+		P.glow(self, s, 130.0, 0.14)
+		P.glow(self, Vector2(s.x, WALL_TOP + 30.0), 120.0, 0.08, 0.35)
+	# moonlight through the windows, with the bars' shadows lying in it
+	for w in _windows:
+		var drift := 260.0 if w.get_center().x < vp.x * 0.5 else -260.0
+		var foot_y := WALL_TOP + 300.0
+		var b0 := Vector2(w.position.x + drift - 40.0, foot_y)
+		var b1 := Vector2(w.end.x + drift + 40.0, foot_y)
+		P.shaft(self, w.position + Vector2(0, w.size.y), w.end, b0, b1, 0.18)
+		var bx: float = w.position.x + 11.0
+		while bx < w.end.x:
+			var f: float = (bx - w.position.x) / w.size.x
+			# the bars' shadows only show where the light lands, on the floor
+			var top := Vector2(bx, w.end.y)
+			var bot := b0.lerp(b1, f)
+			draw_line(top.lerp(bot, (WALL_TOP - top.y) / (bot.y - top.y)), bot, Color(Game.DEEP_MOSS, 0.5), 4.0)
+			bx += 15.0
+	for pd in _puddles:
+		var e := Game.ellipse(float(pd.r), float(pd.r) * 0.32, 20)
+		draw_colored_polygon(Transform2D(0.0, pd.p) * e, Color(Game.DEEP_MOSS, 0.8))
+		draw_polyline(Transform2D(0.0, pd.p) * e + PackedVector2Array([pd.p + e[0]]), Color(c, 0.3), 2.0)
+		draw_line(pd.p + Vector2(-pd.r * 0.4, -3), pd.p + Vector2(pd.r * 0.1, -3), Color(c, 0.28), 2.0)
+	for r in _runes:
+		draw_polyline(r, Color(c, 0.16), 2.0)
+	# cobwebs in the hall's corners and over the cells
+	P.web(self, Vector2(SIDE, WALL_TOP), 46.0, Vector2(1, 1))
+	P.web(self, Vector2(hall.end.x, WALL_TOP), 46.0, Vector2(-1, 1))
+	for id in [1, 4]:
+		var cr: Rect2 = doors[id].cell
+		P.web(self, cr.position - Vector2(10, 10), 34.0, Vector2(1, 1), 0.26)
 	for d in _drains:
 		draw_rect(d, Color(c, 0.3))
 		for i in 5:
@@ -373,6 +484,7 @@ func _draw() -> void:
 		for k in e.size():
 			e[k] += s
 		draw_colored_polygon(e, Game.DEEP_MOSS)
+	P.vignette(self, vp, 160.0, 0.55)
 
 
 ## A cell: dark interior, a stone jamb, and bars. Open cells keep a gap in the
@@ -408,38 +520,75 @@ func _draw_live() -> void:
 			continue
 		var r: Rect2 = doors[id].cell
 		var e := 16.0 if id == 5 else 10.0
-		var p := r.get_center()
+		var p := r.get_center() if id == 5 else Vector2(r.get_center().x, r.end.y - 30.0)
 		var col := Game.DEEP_MOSS.lerp(c, 0.5 + 0.5 * sin(_t * 1.3 + id * 1.7))
 		_live.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -e), p + Vector2(e, 0),
 			p + Vector2(0, e), p + Vector2(-e, 0)]), col)
 
-	# the gate: bars rise as it unlocks; four lamps below count the sapphires set
+	# the gate: bars sink into the floor as it unlocks; four lamps above it
+	# count the sapphires set, and pulse Jade three times when it opens
 	var g: Rect2 = doors[5].cell
-	var bottom := g.end.y - _gate_open * g.size.y
-	var x := g.position.x + 10.0
-	while x < g.end.x:
-		if bottom > g.position.y:
-			_live.draw_line(Vector2(x, g.position.y), Vector2(x, bottom), Color(c, 0.65), 6.0)
-		x += 16.0
-	if bottom > g.position.y:
-		_live.draw_line(Vector2(g.position.x, bottom), Vector2(g.end.x, bottom), Color(c, 0.65), 6.0)
+	var top := g.position.y + _gate_open * g.size.y
+	if top < g.end.y:
+		# shuddering while they grind down
+		var j := 2.5 if _gate_open > 0.0 and _gate_open < 1.0 else 0.0
+		var sx := randf_range(-j, j)
+		var x := g.position.x + 10.0
+		while x < g.end.x:
+			_live.draw_line(Vector2(x + sx, top), Vector2(x + sx, g.end.y), Color(c, 0.65), 6.0)
+			x += 16.0
+		_live.draw_line(Vector2(g.position.x + sx, top), Vector2(g.end.x + sx, top), Color(c, 0.65), 6.0)
+		if j > 0.0 and randf() < 0.3:
+			_live.draw_circle(Vector2(randf_range(g.position.x, g.end.x), g.end.y - 4.0), 3.0, Color(c, 0.5))   # grit
+	var jade := _lamp_pulse > 0.0 and fmod(_lamp_pulse, 0.3) > 0.12
 	for i in 4:
-		var lp := Vector2(g.get_center().x - 39.0 + i * 26.0, g.position.y - 24.0)
-		if i < Game.crystals_placed():
-			_live.draw_circle(lp, 8.0, Color(c, 0.9))
+		var lp := Vector2(g.get_center().x - 54.0 + i * 36.0, g.position.y - 26.0)
+		if jade:
+			_live.draw_circle(lp, 10.0, Game.PALE_JADE)
+		elif i < Game.crystals_placed():
+			_live.draw_circle(lp, 10.0, c)
 		else:
-			_live.draw_arc(lp, 8.0, 0, TAU, 16, Color(c, 0.5), 2.0)
+			_live.draw_arc(lp, 10.0, 0, TAU, 20, c, 2.0)
 
-	# torches
+	# the sapphire being carried bobs over the player's head
+	if carried() > 0:
+		var cp := player.global_position + Vector2(0, -108.0 + sin(_t * TAU / 1.2) * 6.0)
+		UI.diamond(_live, cp, 20, c)
+
+	# torches, with sparks drifting up
 	for s in _sconces:
-		var h := 16.0 + 4.0 * sin(_t * 11.0 + s.x) + 3.0 * sin(_t * 17.3 + s.x * 0.5)
-		_live.draw_circle(s + Vector2(0, -6), 38.0, Color(c, 0.1))
-		_live.draw_colored_polygon(PackedVector2Array([s + Vector2(0, -h), s + Vector2(6, -3),
-			s + Vector2(0, 2), s + Vector2(-6, -3)]), Color(c, 0.8))
+		P.flame(_live, s + Vector2(0, -2), 18.0, _t, s.x)
+		for k in 2:
+			var u := fposmod(_t * 0.7 + k * 0.5 + s.x * 0.01, 1.0)
+			_live.draw_circle(s + Vector2(sin(_t * 3.0 + k * 3.0) * 6.0, -18.0 - u * 60.0), 1.8, Color(c, 0.7 * (1.0 - u)))
+
+	# the altar's glow grows with every sapphire set on it
+	var lit := Game.crystals_placed()
+	if lit > 0:
+		P.glow(_live, altar + Vector2(0, -20), 140.0 + 30.0 * lit, (0.05 + 0.03 * lit) * (0.85 + 0.15 * sin(_t * 1.6)), 0.7)
+
+	# drips falling into the puddles, ringing out
+	for i in _puddles.size():
+		var pd: Dictionary = _puddles[i]
+		var u := fposmod(_t / 2.6 + i * 0.29, 1.0)
+		if u < 0.2:
+			var f := u / 0.2
+			_live.draw_circle(pd.p + Vector2(4, -120.0 * (1.0 - f * f)), 2.0, Color(c, 0.5))
+		else:
+			var f := (u - 0.2) / 0.8
+			_live.draw_arc(pd.p + Vector2(4, 0), 4.0 + float(pd.r) * 0.7 * f, 0, TAU, 20, Color(c, 0.4 * (1.0 - f)), 1.5)
 
 	# sapphires on the altar
+	for id in _flying:
+		# up off the player's head, over in an arc, down into its socket
+		var u: float = _flying[id]
+		var e := u * u * (3.0 - 2.0 * u)
+		var from := player.global_position + Vector2(0, -108.0)
+		var to := _socket(id) + Vector2(0, -30.0)
+		var at := from.lerp(to, e) + Vector2(0, -120.0 * 4.0 * u * (1.0 - u))
+		UI.diamond(_live, at, 20.0 * (1.0 - 0.3 * u), c)
 	for id in [1, 2, 3, 4, 5]:
-		if Game.crystals.get(id, "") != "placed":
+		if Game.crystals.get(id, "") != "placed" or _flying.has(id):
 			continue
 		var s := _socket(id)
 		var h := 72.0 if id == 5 else 46.0
@@ -452,6 +601,92 @@ func _draw_live() -> void:
 		var p: Vector2 = m.p + Vector2(sin(_t * 0.6 + float(m.ph)) * 8.0, 0)
 		_live.draw_circle(p, 2.5, Color(c, 0.45))
 
-	# the moment the gate unlocks: Pale Jade, "look now"
-	if _flash > 0.0:
-		_live.draw_rect(get_viewport_rect(), Color(Game.PALE_JADE, _flash * 0.35))
+
+
+# --- ending (handoff screen 09) --------------------------------------
+func _show_ending() -> void:
+	if _ending:
+		return
+	_ending = Control.new()
+	_ending.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ending.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ending.draw.connect(func(): _ending.draw_rect(Rect2(Vector2.ZERO, _ending.size), Color(UI.MOSS, 0.82)))
+	var col := W.vbox(32)
+	col.add_child(W.Shape.new(Vector2(0, 220), func(c: Control, s: Vector2):
+		var m := s * 0.5
+		UI.diamond(c, m, 120, UI.CORE, false)
+		for d in [Vector2(0, -85), Vector2(85, 0), Vector2(0, 85), Vector2(-85, 0)]:
+			UI.diamond(c, m + d, 44, UI.CORE)
+		UI.diamond(c, m, 52, UI.CORE)))
+	col.add_child(W.Text.new("THE GREEN SAPPHIRE IS WHOLE", 56, 600, 0.2))
+	col.add_child(W.Text.new("TOTAL TIME %s   ·   HITS TAKEN %d" % [UI.fmt_time(Game.total_time), Game.total_hits],
+		16, 400, 0.2, Color(UI.CORE, 0.75)))
+	var home := Btn.new("RETURN HOME", Vector2(440, 100), 28)
+	home.pressed.connect(func():
+		Game.new_game()
+		Game.go(HOME))
+	var cc := CenterContainer.new()
+	cc.add_child(home)
+	col.add_child(cc)
+	_ending.add_child(W.top_centred(col, 120))
+	$UI.add_child(_ending)
+	$UI/TouchControls.hide()
+	home.grab_focus.call_deferred()
+
+
+## The jail's HUD (handoff screen 03): the objective line with a diamond per
+## sapphire, the carry chip, and a status caption on cleared cells. Captions
+## follow the cells' world positions; the jail never scrolls, so those are
+## screen points.
+class HubHud extends Control:
+	var hub: Node2D
+	var _chip := 0.0              # carry chip in/out, 0..1
+
+	func _init(h: Node2D) -> void:
+		hub = h
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_chip = move_toward(_chip, 1.0 if hub.carried() > 0 else 0.0, delta / 0.2)
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := UI.CORE
+		var cx := size.x * 0.5
+		# objective: text, four diamonds, count
+		var txt := "THE GREAT GATE IS OPEN" if hub._gate_unlocked() else "TAKE A SAPPHIRE FROM EVERY CELL"
+		var n := Game.crystals_placed()
+		var count := "%d / 4" % n
+		var tw := UI.text_width(txt, 26, 600, 0.12)
+		var cw := UI.text_width(count, 26, 600, 0.12)
+		var total := tw + 28.0 + 4 * 16.0 + 3 * 12.0 + 28.0 + cw
+		var x := cx - total * 0.5
+		UI.text(self, Vector2(x, 28), txt, 26, c, 600, 0.12)
+		x += tw + 28.0
+		var dy := 28.0 + UI.text_height(26) * 0.5
+		for i in 4:
+			UI.diamond(self, Vector2(x + 8.0 + i * 28.0, dy), 16, c, i < n)
+		x += 4 * 16.0 + 3 * 12.0 + 28.0
+		UI.text(self, Vector2(x, 28), count, 26, c, 600, 0.12)
+
+		# carry chip slides down 20 units and fades in
+		if _chip > 0.0:
+			var id: int = hub.carried()
+			var label: String = "CARRYING SAPPHIRE " + Game.NUMERALS[maxi(id, 0)]
+			var w := 18.0 + 14.0 + UI.text_width(label, 22, 600, 0.15) + 48.0
+			var e := 1.0 - pow(1.0 - _chip, 3.0)
+			var r := Rect2(cx - w * 0.5, 82.0 - 20.0 * (1.0 - e), w, 52)
+			draw_rect(r, Color(c, e))
+			UI.diamond(self, Vector2(r.position.x + 24.0 + 9.0, r.get_center().y), 18, Color(UI.MOSS, e))
+			UI.text(self, Vector2(r.position.x + 24.0 + 18.0 + 14.0, r.get_center().y - UI.text_height(22) * 0.5),
+				label, 22, Color(UI.MOSS, e), 600, 0.15)
+
+		# cleared cells say what happened there; cells are otherwise unlabelled
+		for id in hub.doors:
+			var state: String = Game.crystals.get(id, "")
+			if state == "" or id == 5:
+				continue
+			var cell: Rect2 = hub.doors[id].cell
+			var tag := "SAPPHIRE TAKEN" if state == "carried" else "CLEARED"
+			UI.text(self, Vector2(cell.get_center().x, cell.position.y + 26.0), tag, 14, Color(c, 0.35), 400, 0.15, 0)

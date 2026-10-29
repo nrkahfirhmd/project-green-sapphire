@@ -1,6 +1,6 @@
 extends Node
-## Global singleton: locked palette, hit-stop, session-best run stats, settings,
-## jail progress.
+## Global singleton: locked palette, hit-stop, settings, jail progress, each
+## cell's boss name and the session's best runs.
 
 # --- Settings (persisted to user://) ---------------------------------
 const _CFG_PATH := "user://settings.cfg"
@@ -43,13 +43,20 @@ const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
 const SAPPHIRE_CORE := Color("69A062") # player, muted text, eye mid-charge
 const PALE_JADE := Color("BBE2B6")     # boss body, blade, EVERY telegraph flash
 
+## Off-device, the safe area of an iPhone 15/16 Pro in landscape (59 pt sides,
+## 21 pt bottom), in canvas units: desktop runs and the editor then place the
+## UI exactly where the phone will. The notch can be on either side, so both
+## sides are inset.
+const SIM_INSET_SIDE := 135.0
+const SIM_INSET_BOTTOM := 48.0
+
 ## Safe-area rect in viewport units. On iOS the notch and the home indicator
 ## cover the screen edges, which is exactly where the touch controls and the
-## HUD readouts want to sit. Off-device this is simply the whole viewport.
+## HUD readouts want to sit.
 func safe_area(viewport_size: Vector2) -> Rect2:
 	var full := Rect2(Vector2.ZERO, viewport_size)
 	if not OS.has_feature("mobile"):
-		return full
+		return Rect2(SIM_INSET_SIDE, 0.0, viewport_size.x - SIM_INSET_SIDE * 2.0, viewport_size.y - SIM_INSET_BOTTOM)
 	var win := Vector2(DisplayServer.window_get_size())
 	if win.x <= 0.0 or win.y <= 0.0:
 		return full
@@ -106,17 +113,68 @@ func burst(at: Node, pos: Vector2, color: Color, n := 10, speed := 220.0) -> voi
 	at.add_child(p)
 	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
-# --- Session-best tracking (design bible: victory/defeat screen) --------
-var best_time := INF
-var best_hits := 999
-var has_best := false
 
-func record_run(elapsed: float, hits: int) -> void:
-	if not has_best or elapsed < best_time:
-		best_time = elapsed
-	if not has_best or hits < best_hits:
-		best_hits = hits
-	has_best = true
+## A shockwave on the floor: a flat ring (squashed for the tilted camera)
+## growing to `radius` and thinning out over `dur`. Drawn under the fighters.
+func ring(at: Node, pos: Vector2, radius: float, color := SAPPHIRE_CORE, dur := 0.4, width := 6.0) -> void:
+	var r := Ring.new()
+	r.position = pos
+	r.radius = radius
+	r.color = color
+	r.dur = dur
+	r.width = width
+	at.add_child(r)
+	at.move_child(r, 0)
+
+
+class Ring extends Node2D:
+	var radius := 100.0
+	var color := Color.WHITE
+	var dur := 0.4
+	var width := 6.0
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _t >= dur:
+			queue_free()
+		queue_redraw()
+
+	func _draw() -> void:
+		var k := clampf(_t / dur, 0.0, 1.0)
+		var e := 1.0 - pow(1.0 - k, 3.0)          # fast out, slowing as it spreads
+		var r := lerpf(radius * 0.2, radius, e)
+		var pts := Game.ellipse(r, r * 0.5, 40)
+		pts.append(pts[0])
+		draw_polyline(pts, Color(color, 1.0 - k), maxf(1.0, width * (1.0 - k)))
+
+
+# --- Cells, and the result screen's bests --------------------------------
+const NUMERALS := ["", "I", "II", "III", "IV", "V"]
+const BOSS_NAMES := {1: "THE TURNKEY", 2: "THE PENDULUM", 3: "THE PRISM", 4: "THE HOURGLASS", 5: "THE MIRROR"}
+
+var bests := {}           # cell -> {"time": float, "hits": int}, wins only, this session
+var total_time := 0.0     # summed over won fights, for the ending
+var total_hits := 0
+
+
+## Records a won fight and says whether it set a new best time or hit count.
+func record_win(cell: int, elapsed: float, hits: int) -> Dictionary:
+	var prev: Dictionary = bests.get(cell, {})
+	var new_time := prev.is_empty() or elapsed < float(prev["time"])
+	var new_hits := prev.is_empty() or hits < int(prev["hits"])
+	bests[cell] = {"time": elapsed if new_time else prev["time"], "hits": hits if new_hits else prev["hits"]}
+	total_time += elapsed
+	total_hits += hits
+	return {"new_time": new_time and not prev.is_empty(), "new_hits": new_hits and not prev.is_empty()}
+
+
+## A fresh run of the jail: sapphires and totals cleared, bests kept.
+func new_game() -> void:
+	crystals.clear()
+	current_boss = 0
+	total_time = 0.0
+	total_hits = 0
 
 # --- Hit-stop: brief global freeze on impact (~0.05-0.1s) --------------
 var _hitstop_id := 0
@@ -129,3 +187,54 @@ func hit_stop(duration: float) -> void:
 	await get_tree().create_timer(duration, true, false, true).timeout
 	if my_id == _hitstop_id:
 		Engine.time_scale = 1.0
+
+
+## Slow motion for `duration` real seconds (a boss's death), easing back to
+## full speed over its last third. A later hit-stop or slow-mo takes over.
+func slow_mo(scale: float, duration: float) -> void:
+	_hitstop_id += 1
+	var my_id := _hitstop_id
+	Engine.time_scale = scale
+	await get_tree().create_timer(duration * 0.66, true, false, true).timeout
+	var steps := 8
+	for i in steps:
+		if my_id != _hitstop_id:
+			return
+		Engine.time_scale = lerpf(scale, 1.0, float(i + 1) / steps)
+		await get_tree().create_timer(duration * 0.34 / steps, true, false, true).timeout
+
+
+# --- Scene transitions -----------------------------------------------
+## Every scene change fades through Deep Moss: 0.18 s out, the swap, 0.28 s
+## in. A fade already running wins; a second request is dropped.
+var _fading := false
+
+func go(path: String) -> void:
+	if _fading:
+		return
+	_fading = true
+	Sfx.play("fade", 0.0, 0.0)
+	var layer := CanvasLayer.new()
+	layer.layer = 100                  # over the ASCII pass, so the fade is a clean fill
+	var veil := ColorRect.new()
+	veil.color = Color(DEEP_MOSS, 0.0)
+	veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(veil)
+	get_tree().root.add_child(layer)
+	var out := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	out.tween_property(veil, "color:a", 1.0, 0.18).set_ease(Tween.EASE_IN)
+	await out.finished
+	Engine.time_scale = 1.0
+	get_tree().paused = false
+	if path == "":
+		get_tree().reload_current_scene()
+	else:
+		get_tree().change_scene_to_file(path)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var back := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	back.tween_property(veil, "color:a", 0.0, 0.28).set_ease(Tween.EASE_OUT)
+	await back.finished
+	layer.queue_free()
+	_fading = false

@@ -54,20 +54,21 @@ func _ready() -> void:
 	p.state = 0
 	p._ghosts = []
 
-	# boss: every state against every attack, in both phases
-	for ph in [1, 2]:
+	# the Prism (cell III, the default fight): every state against every
+	# attack, in a phase from each tuning band, with a spike on the floor
+	for ph in [1, 3, 6]:
 		for st in 5:
-			for k in ["slam", "ring", "charge"]:
+			for k in ["slam", "spectrum", "charge", "beam", "shardfall", "lens", "refraction"]:
 				b.phase = ph
 				b.state = st
-				b._kind = k
-				b._eye_t = 0.7
-				b._t = 0.2
+				b._begin(k)
+				b.state = st
+				b.eye_t = 0.7
+				b._elapsed = 0.3
 				b._arm_t = 0.9
 				b._blink = 0.08
-				b._death_t = 0.3
 				b._flash = 0.05
-				b._aim = Vector2.DOWN
+				b._spikes = [{"p": b.global_position + Vector2(120, 60), "t": 2.0, "age": 1.0}]
 				await _settle()
 
 	print("anim_check: every animated state drew without error")

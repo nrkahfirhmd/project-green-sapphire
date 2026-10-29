@@ -7,22 +7,32 @@ extends CharacterBody2D
 ## A boss's global_position is the spot the player's sword has to reach; each
 ## boss draws itself around that point. Every boss has one timer shape whose
 ## colour comes from eye_color(): Deep Moss -> Sapphire Core -> Pale Jade.
+##
+## Breaking a health bar staggers the boss for BREAK_TIME: whatever it was
+## doing is cancelled (_cancel), it can't be hurt except by the ultimate, and
+## anything the new phase brings in fades in during the break.
 
 signal died
 signal health_changed(current: int, max: int)
 signal phase_changed(phase: int)
 signal telegraph_started(kind: String)
 
+const BREAK_TIME := 1.0
+
 var max_hp := 12
 var hp := 12
 var phase := 1
+var phase_hp: Array = []     # health at which phases 2, 3... start; empty = phase 2 at half
 var dead := false
 var eye_t := 0.0             # 0..1 countdown to the next attack
 var player: Node2D
 var _flash := 0.0
 var _visual := Vector2.ONE
+var _kick := Vector2.ZERO    # recoil from the last hit, springs back to zero
+var _shard_acc := 0.0
 var _t := 0.0                # time alive, for idle motion
 var _death_t := 0.0
+var breaking := 0.0          # seconds of phase-break stagger left
 
 
 func _ready() -> void:
@@ -34,15 +44,34 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_t += delta
 	_flash = maxf(0.0, _flash - delta)
+	_kick = _kick.lerp(Vector2.ZERO, 1.0 - exp(-delta * 14.0))
 	if player == null or not is_instance_valid(player):
 		player = get_tree().get_first_node_in_group("player")
 	if dead:
 		_death_t += delta
+		_shatter(delta)
 		velocity = velocity.move_toward(Vector2.ZERO, 400.0 * delta)
 		move_and_slide()
+	elif breaking > 0.0:
+		breaking = maxf(0.0, breaking - delta)
+		eye_t = 0.0
+		_kick = Vector2(randf_range(-5.0, 5.0), randf_range(-2.0, 2.0)) * (breaking / BREAK_TIME)
+		_think_break(delta)
 	else:
 		_think(delta)
 	queue_redraw()
+
+
+## Per-boss motion while staggered by a phase break; by default it stops.
+func _think_break(delta: float) -> void:
+	velocity = velocity.move_toward(Vector2.ZERO, 900.0 * delta)
+	move_and_slide()
+
+
+## Drop whatever attack is under way and clear its hazards; each boss knows
+## what that means for it. Called as a health bar breaks.
+func _cancel() -> void:
+	pass
 
 
 ## Per-boss behaviour, called every physics frame while alive.
@@ -60,22 +89,31 @@ func _on_hit(_amount: int) -> void:
 	pass
 
 
-func take_hit(amount: int, from_pos: Vector2) -> void:
+## `pierce` (the player's ultimate) lands even while shielded.
+func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	if dead:
 		return
-	if not _can_be_hit():
+	if not pierce and (breaking > 0.0 or not _can_be_hit()):
 		_burst(from_pos.lerp(global_position, 0.6), Game.SAPPHIRE_CORE, 6)
 		_request_shake(2.0)
+		_recoil(from_pos, 5.0)
+		Haptics.play("blocked")
+		Sfx.play("blocked")
 		return
 	hp = maxi(0, hp - amount)
 	_flash = 0.12
 	_pop_visual(Vector2(1.18, 0.84))
+	_recoil(from_pos, 8.0 + 5.0 * amount)
 	_burst(from_pos.lerp(global_position, 0.7), Game.SAPPHIRE_CORE, 12)
 	_on_hit(amount)
 	health_changed.emit(hp, max_hp)
-	if phase == 1 and hp <= max_hp / 2 and hp > 0:
-		phase = 2
-		phase_changed.emit(2)
+	var marks := phases()
+	while phase - 1 < marks.size() and hp <= int(marks[phase - 1]) and hp > 0:
+		phase += 1
+		breaking = BREAK_TIME
+		_cancel()
+		_burst(global_position, Game.PALE_JADE, 26)
+		phase_changed.emit(phase)
 		_request_shake(18.0)
 		Game.hit_stop(0.12)
 	if hp <= 0:
@@ -83,9 +121,23 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 		died.emit()
 
 
+## Health thresholds for each new phase, high to low. The HUD draws one bar
+## per phase from these.
+func phases() -> Array:
+	return phase_hp if not phase_hp.is_empty() else [max_hp / 2]
+
+
 func telegraph(kind: String) -> void:
 	telegraph_started.emit(kind)
+	Haptics.play("telegraph")
+	Sfx.play("telegraph")
 	_pop_visual(Vector2(0.88, 1.14))
+
+
+## This boss's own sound: "<script name>_<what>", e.g. sfx("riposte") on the
+## Pendulum plays pendulum_riposte. Attacks call it with their kind as they fire.
+func sfx(what: String) -> void:
+	Sfx.play(get_script().resource_path.get_file().get_basename() + "_" + what)
 
 
 ## Phase 2 runs every timing faster.
@@ -107,6 +159,35 @@ func body_color() -> Color:
 ## Telegraph fill: Pale Jade, brighter as the attack nears.
 func warn_color(t := eye_t) -> Color:
 	return Color(Game.PALE_JADE, 0.22 + 0.5 * t)
+
+
+## Where to draw the body from: the hit recoil, and a tremble as it dies.
+## Every boss adds this to its body's draw transform.
+func kick() -> Vector2:
+	var k := _kick
+	if dead and _death_t < 0.8:
+		var j := 7.0 * (1.0 - _death_t / 0.8)
+		k += Vector2(randf_range(-j, j), randf_range(-j, j))
+	return k
+
+
+## Knocked back from where the blow came from.
+func _recoil(from_pos: Vector2, dist: float) -> void:
+	var away := global_position - from_pos
+	_kick = (away.normalized() if away.length() > 1.0 else Vector2.UP) * dist
+
+
+## The first second of death: the body flickers white and throws off shards.
+func _shatter(delta: float) -> void:
+	if _death_t > 1.0:
+		return
+	if fmod(_death_t, 0.12) < 0.06 and _death_t < 0.6:
+		_flash = 0.02
+	_shard_acc -= delta
+	if _shard_acc <= 0.0:
+		_shard_acc = 0.09
+		var at := global_position + Vector2(randf_range(-60, 60), randf_range(-150, 0))
+		_burst(at, Game.PALE_JADE if randf() < 0.5 else Game.SAPPHIRE_CORE, 6)
 
 
 func death_scale() -> float:

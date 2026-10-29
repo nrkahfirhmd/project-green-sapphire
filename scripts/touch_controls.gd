@@ -1,19 +1,35 @@
 extends Control
-## On-screen controls: a floating analog stick on the left, action buttons on
-## the right, and a restart (or, after a win, continue) button once the run is over.
+## On-screen controls (handoff screen 05): a floating analog stick on the
+## left, HEAVY / LIGHT / DODGE on the right with the three abilities (RICOCHET,
+## BLINK, ULT) around them, and the square pause button at the top left. Every
+## position is an offset from a safe-area corner.
+##
+## RICOCHET is aimed like a slingshot: hold it and drag away from where you
+## want to go; the drag feeds the aim_* actions and letting go launches.
 ##
 ## These drive the same input actions the keyboard does, at analog strength, so
 ## Input.get_vector in player.gd reads the stick exactly like a gamepad and
 ## nothing in the gameplay scripts knows touch exists.
 ##
-## Palette: Deep Moss and Sapphire Core only. Pale Jade stays reserved for
-## "look now" moments, so a pressed button fills Sapphire Core rather than
-## flashing -- a button lighting up must never read as a telegraph.
+## States per the spec: idle, pressed (scale 0.94, solid), disabled (dashed,
+## while `locked`, e.g. during a boss intro), and dodge cooldown (a ring that
+## sweeps round over the 0.5 s cooldown). Pale Jade never appears here: a
+## button lighting up must never read as a telegraph.
+##
+## Hidden once the run ends (the result screen has its own buttons) and while
+## the game is paused.
+
+const UI := preload("res://scripts/ui/ui.gd")
 
 const STICK_RADIUS := 115.0
 const KNOB_RADIUS := 50.0
 const TOUCH_SLOP := 1.15        # thumbs are imprecise; accept a little outside the circle
+const PAUSE := Vector2(100, 100)
+const COOLDOWN_R := 53.0
+const DRAG_FULL := 90.0         # drag this far for a full-strength aim
+const COOLING := ["dodge", "ricochet", "blink"]   # buttons with a cooldown ring
 
+var locked := false             # set while input must not reach the game
 var _stick_touch := -1
 var _stick_origin := Vector2.ZERO
 var _knob := Vector2.ZERO       # knob offset from the stick origin, in pixels
@@ -21,11 +37,18 @@ var _btn_touch := {}            # touch index -> action name
 var _held := {}                 # action -> frames held down
 var _release_q: Array = []
 var _over := false
-var _win := false
+var _scale := {}                # action -> drawn scale, eased toward its target
+var _was_cooling := {}          # action -> was it cooling last frame
+var _pop := {}                  # action -> "ready" pop, 1 -> 0
+var _drag_touch := -1           # the touch dragging back on RICOCHET
+var _drag := Vector2.ZERO
+var _was_ult_ready := false
+var _deny := {}                 # action -> 1 -> 0 shake when pressed but not ready
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	process_mode = Node.PROCESS_MODE_ALWAYS    # so a release still lands if a press pauses the game
 	_stick_origin = _stick_home()
 	await get_tree().process_frame     # current_scene isn't set yet during a scene change
 	# the jail has no run to end, so it has no run_over and the controls never close
@@ -34,9 +57,8 @@ func _ready() -> void:
 		scene.run_over.connect(_on_run_over)
 
 
-func _on_run_over(win: bool) -> void:
+func _on_run_over(_win: bool) -> void:
 	_over = true
-	_win = win
 	_drop_stick()
 	for a in _btn_touch.values():
 		Input.action_release(a)
@@ -45,50 +67,99 @@ func _on_run_over(win: bool) -> void:
 
 func _stick_home() -> Vector2:
 	var s := Game.safe_area(size)
-	return Vector2(s.position.x + 250.0, s.end.y - 250.0)
+	return Vector2(s.position.x + 150.0, s.end.y - 170.0)
 
 
-## Buttons are anchored to the corners rather than placed at fixed coordinates,
-## so the layout survives the aspect ratios that "expand" stretch allows.
+## The action buttons, anchored to the bottom-right of the safe area.
 func _buttons() -> Array:
 	var s := Game.safe_area(size)
-	if _over:
-		return [{"a": "restart", "p": Vector2(s.get_center().x, s.position.y + s.size.y * 0.72),
-			"r": 62.0, "t": "CONTINUE" if _win else "RESTART"}]
 	return [
-		{"a": "attack_heavy", "p": s.end - Vector2(160, 300), "r": 70.0, "t": "HEAVY"},
-		{"a": "attack_light", "p": s.end - Vector2(310, 190), "r": 60.0, "t": "LIGHT"},
-		{"a": "dodge", "p": s.end - Vector2(160, 120), "r": 58.0, "t": "DODGE"},
+		{"a": "attack_heavy", "p": s.end - Vector2(130, 150), "r": 70.0, "t": "HEAVY"},
+		{"a": "attack_light", "p": s.end - Vector2(295, 77), "r": 60.0, "t": "LIGHT"},
+		{"a": "dodge", "p": s.end - Vector2(160, 322), "r": 58.0, "t": "DODGE"},
+		{"a": "blink", "p": s.end - Vector2(330, 250), "r": 52.0, "t": "BLINK"},
+		{"a": "ricochet", "p": s.end - Vector2(460, 120), "r": 52.0, "t": "RICOCHET"},
+		{"a": "ultimate", "p": s.end - Vector2(150, 480), "r": 52.0, "t": "ULT"},
 	]
+
+
+func _pause_rect() -> Rect2:
+	return Rect2(Game.safe_area(size).position + Vector2(24, 24), PAUSE)
+
+
+func _active() -> bool:
+	return not _over and not locked and not get_tree().paused and visible
 
 
 # --- input ------------------------------------------------------------
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			_on_press(event.index, event.position)
+			if _active():
+				_on_press(event.index, event.position)
 		else:
 			_on_release(event.index)
 	elif event is InputEventScreenDrag and event.index == _stick_touch:
 		_set_knob(event.position - _stick_origin)
+	elif event is InputEventScreenDrag and event.index == _drag_touch:
+		_set_drag(event.position)
 
 
 func _on_press(index: int, pos: Vector2) -> void:
+	if _pause_rect().grow(10).has_point(pos):
+		_tap(index, "pause")
+		return
 	for b in _buttons():
 		if pos.distance_to(b["p"]) <= float(b["r"]) * TOUCH_SLOP:
-			_btn_touch[index] = b["a"]
-			Input.action_press(b["a"])
-			_held[b["a"]] = 0
+			_tap(index, b["a"])
 			return
 	# the stick is floating: it appears under the thumb instead of at a fixed
 	# spot, which is the difference between usable and not on a phone
-	if not _over and _stick_touch == -1 and pos.x < size.x * 0.5:
+	if _stick_touch == -1 and pos.x < size.x * 0.5:
 		_stick_touch = index
 		_stick_origin = pos
 		_set_knob(Vector2.ZERO)
 
 
+func _tap(index: int, action: String) -> void:
+	_btn_touch[index] = action
+	Input.action_press(action)
+	_held[action] = 0
+	# pressed too early: the button shakes its head, and the phone says no
+	var not_ready := (action != "dodge" and COOLING.has(action) and _cd(action).x > 0.0) or (action == "ultimate" and _ult().y < 1.0)
+	if not_ready and _player() != null:
+		_deny[action] = 1.0
+		Haptics.play("denied")
+		Sfx.play("denied")
+	if action == "ricochet":
+		_drag_touch = index
+		_drag = Vector2.ZERO
+
+
+## Pulling back aims the other way, like a slingshot.
+func _set_drag(pos: Vector2) -> void:
+	var centre: Vector2 = _button("ricochet")["p"]
+	_drag = pos - centre
+	var aim := -_drag / DRAG_FULL
+	aim = aim.limit_length(1.0) if _drag.length() > 20.0 else Vector2.ZERO
+	_axis("aim_left", "aim_right", aim.x)
+	_axis("aim_up", "aim_down", aim.y)
+
+
+func _button(action: String) -> Dictionary:
+	for b in _buttons():
+		if b["a"] == action:
+			return b
+	return {}
+
+
 func _on_release(index: int) -> void:
+	if index == _drag_touch:
+		# the player latches the aim while the button is held, so it can go now
+		_drag_touch = -1
+		_drag = Vector2.ZERO
+		_axis("aim_left", "aim_right", 0.0)
+		_axis("aim_up", "aim_down", 0.0)
 	if index == _stick_touch:
 		_drop_stick()
 	elif _btn_touch.has(index):
@@ -126,7 +197,7 @@ func _axis(neg: String, pos: String, v: float) -> void:
 		Input.action_release(pos)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# A tap that starts and ends inside one frame would never be seen by
 	# is_action_just_pressed, which is how every attack in player.gd fires, so
 	# a release always waits until the action has been held a full frame.
@@ -140,32 +211,121 @@ func _process(_delta: float) -> void:
 	_release_q = still
 	for a in _held:
 		_held[a] = int(_held[a]) + 1
+
+	# pressed buttons ease to 0.94 (0.06 s down, 0.10 s back up)
+	var pressed := _btn_touch.values()
+	for b in _buttons():
+		var a: String = b["a"]
+		var target := 0.94 if pressed.has(a) else 1.0
+		# 0.06 of scale over 0.06 s down, over 0.10 s back up
+		_scale[a] = move_toward(float(_scale.get(a, 1.0)), target, delta * (1.0 if target < 1.0 else 0.6))
+	# a button pops when its cooldown runs out, and ULT when it becomes ready
+	for a in COOLING:
+		var cooling := _cd(a).x > 0.0
+		if _was_cooling.get(a, false) and not cooling:
+			_pop[a] = 1.0
+		_was_cooling[a] = cooling
+	var ult := _ult().x >= 1.0
+	if ult and not _was_ult_ready:
+		_pop["ultimate"] = 1.0
+	_was_ult_ready = ult
+	for a in _pop:
+		_pop[a] = maxf(0.0, float(_pop[a]) - delta / 0.12)
+	for a in _deny:
+		_deny[a] = maxf(0.0, float(_deny[a]) - delta / 0.3)
 	queue_redraw()
+
+
+func _player() -> Node:
+	return get_tree().get_first_node_in_group("player")
+
+
+## (left, total) for a button with a cooldown.
+func _cd(action: String) -> Vector2:
+	var pl := _player()
+	return pl.cooldown(action) if pl and pl.has_method("cooldown") else Vector2.ZERO
+
+
+## (charge 0..1, usable 0/1) for the ultimate.
+func _ult() -> Vector2:
+	var pl := _player()
+	if not (pl and "ult_charge" in pl):
+		return Vector2.ZERO
+	return Vector2(float(pl.ult_charge) / float(pl.ULT_COST), 1.0 if pl.ult_ready() else 0.0)
 
 
 # --- draw -------------------------------------------------------------
 func _draw() -> void:
-	var line := Color(Game.SAPPHIRE_CORE, 0.6)
-	var fill := Color(Game.DEEP_MOSS, 0.45)
-	var font := ThemeDB.fallback_font
-
-	if not _over:
-		var origin := _stick_origin if _stick_touch != -1 else _stick_home()
-		draw_circle(origin, STICK_RADIUS, fill)
-		draw_arc(origin, STICK_RADIUS, 0, TAU, 48, line, 3.0)
-		var knob := origin + _knob
-		var live := _stick_touch != -1
-		draw_circle(knob, KNOB_RADIUS, Color(Game.SAPPHIRE_CORE, 0.55 if live else 0.3))
-		draw_arc(knob, KNOB_RADIUS, 0, TAU, 32, line, 2.5)
-
+	if _over or get_tree().paused:
+		return
+	var c := UI.CORE
 	var pressed := _btn_touch.values()
+
+	# pause: 100x100 square with two bars
+	var pr := _pause_rect()
+	var pdown := pressed.has("pause")
+	if locked:
+		UI.dashed_rect(self, pr, Color(c, 0.3))
+	else:
+		draw_rect(pr, Color(c, 0.5) if pdown else Color(UI.MOSS, 0.6))
+		if not pdown:
+			draw_rect(pr, Color(c, 0.6), false, UI.STROKE)
+	var bar_col := UI.MOSS if pdown else Color(c, 0.3 if locked else 1.0)
+	for x in [-11.0, 11.0]:
+		draw_rect(Rect2(pr.get_center() + Vector2(x - 5.0, -18.0), Vector2(10, 36)), bar_col)
+
+	# stick: a resting hint, or live under the thumb
+	var live := _stick_touch != -1
+	var origin := _stick_origin if live else _stick_home()
+	var ring_a := 0.6 if live else 0.35
+	draw_arc(origin, STICK_RADIUS, 0, TAU, 64, Color(c, ring_a * (0.5 if locked else 1.0)), UI.STROKE)
+	var knob := origin + _knob
+	draw_circle(knob, KNOB_RADIUS, Color(c, 0.5 if live else 0.2))
+	if not live:
+		draw_arc(knob, KNOB_RADIUS, 0, TAU, 48, Color(c, 0.35), UI.STROKE)
+
 	for b in _buttons():
-		var c: Vector2 = b["p"]
+		var a: String = b["a"]
+		var p: Vector2 = b["p"]
+		var no := float(_deny.get(b["a"], 0.0))
+		p.x += sin(no * 28.0) * 8.0 * no
 		var r: float = b["r"]
-		var down: bool = pressed.has(b["a"])
-		draw_circle(c, r, Color(Game.SAPPHIRE_CORE, 0.5) if down else fill)
-		draw_arc(c, r, 0, TAU, 40, line, 3.0)
-		var fs := 16
-		draw_string(font, c + Vector2(-r, fs * 0.35), b["t"],
-			HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, fs,
-			Game.DEEP_MOSS if down else Color(Game.SAPPHIRE_CORE, 0.9))
+		var down := pressed.has(a)
+		var sc := float(_scale.get(a, 1.0)) * (1.0 + 0.08 * float(_pop.get(a, 0.0)))
+		var ring := (r - 5.0) * sc        # the cooldown arc sits 2 units inside the edge
+		r *= sc
+		var label_col := c
+		var cd := _cd(a) if COOLING.has(a) else Vector2.ZERO
+		var ult := _ult() if a == "ultimate" else Vector2(1, 1)
+		if locked:
+			_dashed_circle(p, r, Color(c, 0.3))
+			label_col = Color(c, 0.3)
+		elif down:
+			draw_circle(p, r, Color(c, 0.5))
+			label_col = UI.MOSS
+		elif cd.x > 0.0 or ult.y < 1.0:
+			# cooling down (or the ultimate still charging): dim ring, and an arc
+			# sweeping clockwise from 12 o'clock as it comes back
+			draw_circle(p, r, Color(UI.MOSS, 0.45))
+			draw_arc(p, r, 0, TAU, 48, Color(c, 0.25), UI.STROKE)
+			var done := ult.x if a == "ultimate" else 1.0 - cd.x / maxf(cd.y, 0.01)
+			if done > 0.0:
+				draw_arc(p, ring, -PI * 0.5, -PI * 0.5 + TAU * clampf(done, 0.0, 1.0), 48, c, 6.0)
+			label_col = Color(c, 0.4)
+		else:
+			draw_circle(p, r, Color(UI.MOSS, 0.45))
+			draw_arc(p, r, 0, TAU, 48, Color(c, 0.6), UI.STROKE)
+		var px := 18 if r > 56.0 else 14
+		UI.text(self, p - Vector2(0, UI.text_height(px) * 0.5), b["t"], px, label_col, 600, 0.12, 0)
+
+	# RICOCHET's pull: a line from the button to the thumb
+	if _drag_touch != -1 and _drag.length() > 20.0:
+		var from: Vector2 = _button("ricochet")["p"]
+		draw_line(from, from + _drag, Color(c, 0.6), UI.STROKE)
+		draw_circle(from + _drag, 8.0, Color(c, 0.6))
+
+
+func _dashed_circle(p: Vector2, r: float, col: Color) -> void:
+	for k in 24:
+		var a0 := TAU * k / 24.0
+		draw_arc(p, r, a0, a0 + TAU / 48.0, 4, col, UI.STROKE)

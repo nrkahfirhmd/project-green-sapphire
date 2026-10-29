@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#3B4939;color:#69A062;font-family:'IBM Plex Mono',monospace}a{color:#69A062}a:hover{color:#69A062;text-decoration:underline}</style>
+</helmet>
+
+<section style="display:flex;flex-direction:column;gap:96px;padding:120px;background:#3B4939;font-family:'IBM Plex Mono',monospace;color:#69A062;width:max-content">
+
+<div style="display:flex;flex-direction:column;gap:24px;max-width:1950px">
+  <div style="font-size:20px;letter-spacing:.3em">GREEN SAPPHIRE · UI DESIGN · v1</div>
+  <div style="font-size:72px;font-weight:600;letter-spacing:.12em;line-height:1">INTERFACE SYSTEM</div>
+  <div style="font-size:24px;line-height:1.6;max-width:1500px;text-wrap:pretty">Direction: <b>echo the ASCII world</b>. Every element is drawn the way a terminal would draw it: one monospace face (IBM Plex Mono, 400 and 600), square-cornered frames with 2-unit strokes and solid 8-unit corner ticks standing in for box-drawing characters, and diamonds built from rotated squares. The world fills its 6 × 7 grid with glyphs; the UI uses the same rhythm but stays crisp, so it reads as the frame around the world rather than part of it. <b>Pale Jade is rationed to five uses only</b>: boss health, the low-HP pulse, a hit flash, a dropped sapphire, and the gate opening. Everything else, including focus, selection, pressed states and the title, uses Sapphire Core at a full or reduced alpha, plus inversion (a Core fill with Deep Moss text). So the brightest colour on screen always means "look now".</div>
+  <div style="display:flex;gap:40px;font-size:20px">
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:#3B4939;border:2px solid #69A062"></div>DEEP MOSS #3B4939</div>
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:#69A062"></div>SAPPHIRE CORE #69A062</div>
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:#BBE2B6"></div>PALE JADE #BBE2B6 · SIGNAL ONLY</div>
+  </div>
+</div>
+
+<!-- SCREENS -->
+<div style="display:grid;grid-template-columns:1950px 1950px;gap:120px 96px">
+
+<!-- 01 HOME -->
+<div data-screen-label="01 Home" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">01 HOME</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.16);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiHome }}</pre></sc-if>
+    <div style="position:absolute;left:0;right:0;top:150px;display:flex;flex-direction:column;align-items:center;gap:28px">
+      <div style="display:flex;align-items:center;gap:20px;font-size:20px;letter-spacing:.4em;color:rgba(105,160,98,.75)"><div style="width:120px;height:2px;background:rgba(105,160,98,.75)"></div>A JAIL OF FIVE CELLS<div style="width:120px;height:2px;background:rgba(105,160,98,.75)"></div></div>
+      <div style="position:relative;padding:28px 64px;border:2px solid #69A062">
+        <div style="position:absolute;left:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;left:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div>
+        <div style="font-size:112px;font-weight:600;letter-spacing:.2em;line-height:1;margin-right:-.2em">GREEN SAPPHIRE</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:34px;height:40px">
+        <div style="width:18px;height:18px;border:2px solid #69A062;transform:rotate(45deg)"></div>
+        <div style="width:18px;height:18px;border:2px solid #69A062;transform:rotate(45deg)"></div>
+        <div style="width:28px;height:28px;background:#69A062;transform:rotate(45deg)"></div>
+        <div style="width:18px;height:18px;border:2px solid #69A062;transform:rotate(45deg)"></div>
+        <div style="width:18px;height:18px;border:2px solid #69A062;transform:rotate(45deg)"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-top:24px">
+        <div style="width:400px;height:100px;box-sizing:border-box;border:2px solid #69A062;background:rgba(105,160,98,.15);display:flex;align-items:center;justify-content:center;gap:16px;font-size:34px;font-weight:600;letter-spacing:.2em"><span>▸</span>PLAY</div>
+        <div style="width:400px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:600;letter-spacing:.2em">SETTINGS</div>
+      </div>
+    </div>
+    
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 02 SETTINGS -->
+<div data-screen-label="02 Settings" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">02 SETTINGS</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.16);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiHome }}</pre></sc-if>
+    <div style="position:absolute;left:50%;top:120px;transform:translateX(-50%);width:960px;box-sizing:border-box;border:2px solid #69A062;background:rgba(59,73,57,.9);padding:48px 64px;display:flex;flex-direction:column;gap:32px">
+      <div style="position:absolute;left:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;left:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div>
+      <div style="font-size:48px;font-weight:600;letter-spacing:.2em">SETTINGS</div>
+      <div style="height:2px;background:rgba(105,160,98,.4)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:100px;padding:0 16px;background:rgba(105,160,98,.15);border:2px solid #69A062">
+        <div style="font-size:28px;font-weight:600;letter-spacing:.15em">▸ VOLUME</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <sc-for list="{{ volume }}" as="v" hint-placeholder-count="10"><sc-if value="{{ v.on }}"><div style="width:32px;height:40px;background:#69A062"></div></sc-if><sc-if value="{{ v.off }}"><div style="width:32px;height:40px;box-sizing:border-box;border:2px solid rgba(105,160,98,.45)"></div></sc-if></sc-for>
+          <div style="width:72px;text-align:right;font-size:28px">70</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:100px;padding:0 16px;border:2px solid transparent">
+        <div style="font-size:28px;font-weight:600;letter-spacing:.15em;padding-left:30px">HAPTICS</div>
+        <div style="display:flex">
+          <div style="width:150px;height:100px;box-sizing:border-box;background:#69A062;color:#3B4939;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;letter-spacing:.15em">ON</div>
+          <div style="width:150px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;letter-spacing:.15em;color:rgba(105,160,98,.6)">OFF</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="width:300px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;letter-spacing:.2em">BACK</div>
+      </div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 03 JAIL HUB -->
+<div data-screen-label="03 Jail hub" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">03 JAIL HUB · CARRYING A SAPPHIRE</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiHub }}</pre></sc-if>
+    <sc-for list="{{ cells }}" as="c" hint-placeholder-count="4">
+      <div style="position:absolute;left:{{ c.x }}px;top:186px;width:330px;display:flex;flex-direction:column;align-items:center;gap:4px;opacity:{{ c.op }}">
+        <div style="font-size:30px;font-weight:600;letter-spacing:.1em">{{ c.num }}</div>
+        <div style="font-size:16px;letter-spacing:.2em">{{ c.name }}</div>
+        <div style="font-size:14px;letter-spacing:.2em">{{ c.tag }}</div>
+      </div>
+    </sc-for>
+    <div style="position:absolute;left:875px;top:648px;width:200px;display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div style="display:flex;gap:16px"><div style="width:20px;height:20px;border-radius:50%;background:#69A062"></div><div style="width:20px;height:20px;border-radius:50%;background:#69A062"></div><div style="width:20px;height:20px;border-radius:50%;box-sizing:border-box;border:2px solid #69A062"></div><div style="width:20px;height:20px;border-radius:50%;box-sizing:border-box;border:2px solid #69A062"></div></div>
+      <div style="font-size:30px;font-weight:600">V</div>
+    </div>
+    <div style="position:absolute;left:1166px;top:478px;width:20px;height:20px;background:#69A062;transform:rotate(45deg)"></div>
+    <div style="position:absolute;left:0;right:0;top:28px;display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:24px;font-size:26px;font-weight:600;letter-spacing:.12em">TAKE A SAPPHIRE FROM EVERY CELL
+        <div style="display:flex;gap:14px;align-items:center"><div style="width:16px;height:16px;background:#69A062;transform:rotate(45deg)"></div><div style="width:16px;height:16px;background:#69A062;transform:rotate(45deg)"></div><div style="width:16px;height:16px;box-sizing:border-box;border:2px solid #69A062;transform:rotate(45deg)"></div><div style="width:16px;height:16px;box-sizing:border-box;border:2px solid #69A062;transform:rotate(45deg)"></div></div>
+        <span style="font-weight:400">2 / 4</span></div>
+      <div style="display:flex;align-items:center;gap:18px;height:52px;padding:0 24px;background:#69A062;color:#3B4939;font-size:22px;font-weight:600;letter-spacing:.15em">
+        <div style="width:18px;height:18px;background:#3B4939;transform:rotate(45deg)"></div>CARRYING SAPPHIRE III</div>
+    </div>
+    <div style="position:absolute;left:159px;top:24px;width:100px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;gap:12px"><div style="width:10px;height:36px;background:#69A062"></div><div style="width:10px;height:36px;background:#69A062"></div></div>
+    <div style="position:absolute;left:1615px;top:632px;width:140px;height:140px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">HEAVY</div></div>
+    <div style="position:absolute;left:1460px;top:715px;width:120px;height:120px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">LIGHT</div></div>
+    <div style="position:absolute;left:1597px;top:472px;width:116px;height:116px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">DODGE</div></div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 04 FIGHT A -->
+<div data-screen-label="04 Fight HUD notch left" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">04 + 05 FIGHT HUD · NOTCH LEFT · PHASE 2, DODGE COOLING, HEAVY PRESSED</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiFight }}</pre></sc-if>
+    <div style="position:absolute;left:159px;top:24px;width:100px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;gap:12px"><div style="width:10px;height:36px;background:#69A062"></div><div style="width:10px;height:36px;background:#69A062"></div></div>
+    <div style="position:absolute;left:287px;top:32px;display:flex;gap:10px">
+      <sc-for list="{{ hearts3 }}" as="h" hint-placeholder-count="4"><sc-if value="{{ h.full }}"><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="#69A062" stroke="#69A062" stroke-width="2" stroke-linejoin="round"></path></svg></sc-if><sc-if value="{{ h.empty }}"><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="none" stroke="rgba(105,160,98,.6)" stroke-width="2" stroke-linejoin="round"></path></svg></sc-if></sc-for>
+    </div>
+    <div style="position:absolute;left:287px;top:70px;font-size:24px;letter-spacing:.05em">0:42.17</div>
+    <div style="position:absolute;left:50%;top:20px;transform:translateX(-50%);width:560px;display:flex;flex-direction:column;gap:8px">
+      <div style="text-align:center;font-size:20px;font-weight:600;letter-spacing:.15em">III · THE BELL</div>
+      <div style="position:relative;height:22px;box-sizing:border-box;border:2px solid #69A062;border-radius:6px;background:#3B4939;overflow:hidden"><div style="position:absolute;left:0;top:0;bottom:0;width:{{ hpP2 }};background:#BBE2B6"></div></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px"><sc-for list="{{ pipsP2 }}" as="p" hint-placeholder-count="3"><sc-if value="{{ p.on }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px;background:#BBE2B6"></div></sc-if><sc-if value="{{ p.off }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px"></div></sc-if></sc-for></div>
+    </div>
+    <div style="position:absolute;left:170px;top:567px;width:230px;height:230px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.35)"></div>
+    <div style="position:absolute;left:235px;top:632px;width:100px;height:100px;border-radius:50%;background:rgba(105,160,98,.2);box-sizing:border-box;border:2px solid rgba(105,160,98,.35)"></div>
+    <div style="position:absolute;left:1615px;top:632px;width:140px;height:140px;border-radius:50%;background:rgba(105,160,98,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transform:scale(.94);color:#3B4939"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">HEAVY</div></div>
+    <div style="position:absolute;left:1460px;top:715px;width:120px;height:120px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">LIGHT</div></div>
+    <div style="position:absolute;left:1597px;top:472px;width:116px;height:116px">
+      <svg width="116" height="116" style="position:absolute;inset:0"><circle cx="58" cy="58" r="55" fill="rgba(59,73,57,.45)" stroke="rgba(105,160,98,.25)" stroke-width="2"></circle><circle cx="58" cy="58" r="53" fill="none" stroke="#69A062" stroke-width="6" stroke-dasharray="200 333" transform="rotate(-90 58 58)"></circle></svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(105,160,98,.4)"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">DODGE</div></div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 04 FIGHT B -->
+<div data-screen-label="04 Fight HUD notch right" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">04 + 05 FIGHT HUD · NOTCH RIGHT · PHASE 1, LOW HP, STICK ACTIVE</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiFight }}</pre></sc-if>
+    <div style="position:absolute;left:0;right:0;top:0;height:14px;background:rgba(187,226,182,.55)"></div><div style="position:absolute;left:0;right:0;bottom:0;height:14px;background:rgba(187,226,182,.55)"></div><div style="position:absolute;left:0;top:0;bottom:0;width:14px;background:rgba(187,226,182,.55)"></div><div style="position:absolute;right:0;top:0;bottom:0;width:14px;background:rgba(187,226,182,.55)"></div>
+    <div style="position:absolute;left:159px;top:24px;width:100px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;gap:12px"><div style="width:10px;height:36px;background:#69A062"></div><div style="width:10px;height:36px;background:#69A062"></div></div>
+    <div style="position:absolute;left:287px;top:32px;display:flex;gap:10px">
+      <sc-for list="{{ hearts2 }}" as="h" hint-placeholder-count="4"><sc-if value="{{ h.full }}"><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="#69A062" stroke="#69A062" stroke-width="2" stroke-linejoin="round"></path></svg></sc-if><sc-if value="{{ h.empty }}"><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="none" stroke="rgba(105,160,98,.6)" stroke-width="2" stroke-linejoin="round"></path></svg></sc-if></sc-for>
+    </div>
+    <div style="position:absolute;left:287px;top:70px;font-size:24px;letter-spacing:.05em">1:03.88</div>
+    <div style="position:absolute;left:50%;top:20px;transform:translateX(-50%);width:560px;display:flex;flex-direction:column;gap:8px">
+      <div style="text-align:center;font-size:20px;font-weight:600;letter-spacing:.15em">II · THE HOUND</div>
+      <div style="position:relative;height:22px;box-sizing:border-box;border:2px solid #69A062;border-radius:6px;background:#3B4939;overflow:hidden"><div style="position:absolute;left:0;top:0;bottom:0;width:{{ hpP1 }};background:#BBE2B6"></div></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px"><sc-for list="{{ pipsP1 }}" as="p" hint-placeholder-count="3"><sc-if value="{{ p.on }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px;background:#BBE2B6"></div></sc-if><sc-if value="{{ p.off }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px"></div></sc-if></sc-for></div>
+    </div>
+    <div style="position:absolute;left:300px;top:520px;width:230px;height:230px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6)"></div>
+    <div style="position:absolute;left:425px;top:575px;width:100px;height:100px;border-radius:50%;background:rgba(105,160,98,.5)"></div>
+    <div style="position:absolute;left:1615px;top:632px;width:140px;height:140px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">HEAVY</div></div>
+    <div style="position:absolute;left:1460px;top:715px;width:120px;height:120px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">LIGHT</div></div>
+    <div style="position:absolute;left:1597px;top:472px;width:116px;height:116px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">DODGE</div></div>
+    <dc-import name="Guides" side="right" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 06 VICTORY -->
+<div data-screen-label="06 Result victory" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">06 RESULT · VICTORY</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiFight }}</pre></sc-if>
+    <div style="position:absolute;inset:0;background:rgba(59,73,57,.72)"></div>
+    <div style="position:absolute;left:0;right:0;top:80px;display:flex;flex-direction:column;align-items:center;gap:28px">
+      <div style="font-size:20px;letter-spacing:.4em">CELL II · THE HOUND FALLS</div>
+      <div style="font-size:80px;font-weight:600;letter-spacing:.3em;line-height:1;margin-right:-.3em">VICTORY</div>
+      <div style="display:flex;align-items:center;gap:28px;margin:12px 0">
+        <div style="width:80px;height:2px;background:#69A062"></div>
+        <div style="position:relative;width:76px;height:76px;margin:12px;border:2px solid #69A062;transform:rotate(45deg);display:flex;align-items:center;justify-content:center"><div style="width:44px;height:44px;background:#69A062"></div></div>
+        <div style="width:80px;height:2px;background:#69A062"></div>
+      </div>
+      <div style="font-size:22px;font-weight:600;letter-spacing:.2em">SAPPHIRE II WON</div>
+      <div style="display:grid;grid-template-columns:auto auto auto;gap:14px 56px;align-items:center;font-size:24px;margin-top:8px">
+        <div></div><div style="font-size:16px;letter-spacing:.2em;color:rgba(105,160,98,.7);text-align:right">THIS RUN</div><div style="font-size:16px;letter-spacing:.2em;color:rgba(105,160,98,.7);text-align:right">BEST</div>
+        <div style="font-weight:600;letter-spacing:.15em">TIME</div><div style="text-align:right;display:flex;align-items:center;gap:12px;justify-content:flex-end"><span style="font-size:14px;font-weight:600;letter-spacing:.1em;background:#69A062;color:#3B4939;padding:2px 8px">NEW</span>1:12.40</div><div style="text-align:right">1:12.40</div>
+        <div style="font-weight:600;letter-spacing:.15em">HITS TAKEN</div><div style="text-align:right">3</div><div style="text-align:right">1</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:16px">
+        <div style="width:400px;height:100px;box-sizing:border-box;border:2px solid #69A062;background:rgba(105,160,98,.15);display:flex;align-items:center;justify-content:center;gap:16px;font-size:30px;font-weight:600;letter-spacing:.2em"><span>▸</span>CONTINUE</div>
+      </div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 06 DEFEAT -->
+<div data-screen-label="06 Result defeat" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">06 RESULT · DEFEAT (RETRY FOCUSED, IN 0.4 S)</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiFight }}</pre></sc-if>
+    <div style="position:absolute;inset:0;background:rgba(59,73,57,.72)"></div>
+    <div style="position:absolute;left:0;right:0;top:220px;display:flex;flex-direction:column;align-items:center;gap:28px">
+      <div style="font-size:80px;font-weight:600;letter-spacing:.3em;line-height:1;margin-right:-.3em;color:rgba(105,160,98,.75)">DEFEAT</div>
+      <div style="font-size:22px;letter-spacing:.15em">III · THE BELL    TIME 0:48.12    HITS 4    BEST 1:30.55</div>
+      <div style="display:flex;gap:24px;margin-top:40px">
+        <div style="width:480px;height:120px;box-sizing:border-box;border:2px solid #69A062;background:rgba(105,160,98,.15);display:flex;align-items:center;justify-content:center;gap:16px;font-size:36px;font-weight:600;letter-spacing:.2em"><span>▸</span>RETRY</div>
+        <div style="width:360px;height:120px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:600;letter-spacing:.2em">BACK TO JAIL</div>
+      </div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 07 PAUSE -->
+<div data-screen-label="07 Pause" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">07 PAUSE SHEET</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiFight }}</pre></sc-if>
+    <div style="position:absolute;inset:0;background:rgba(59,73,57,.82)"></div>
+    <div style="position:absolute;left:159px;top:24px;width:100px;height:100px;box-sizing:border-box;background:rgba(105,160,98,.5);display:flex;align-items:center;justify-content:center;gap:12px"><div style="width:10px;height:36px;background:#3B4939"></div><div style="width:10px;height:36px;background:#3B4939"></div></div>
+    <div style="position:absolute;left:50%;top:120px;transform:translateX(-50%);width:640px;box-sizing:border-box;border:2px solid #69A062;background:#3B4939;padding:48px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div style="position:absolute;left:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;left:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div>
+      <div style="font-size:48px;font-weight:600;letter-spacing:.3em;margin-right:-.3em">PAUSED</div>
+      <div style="font-size:18px;letter-spacing:.2em;color:rgba(105,160,98,.75);margin-bottom:16px">III · THE BELL · 0:42.17</div>
+      <div style="width:480px;height:100px;box-sizing:border-box;border:2px solid #69A062;background:rgba(105,160,98,.15);display:flex;align-items:center;justify-content:center;gap:16px;font-size:28px;font-weight:600;letter-spacing:.2em"><span>▸</span>RESUME</div>
+      <div style="width:480px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;letter-spacing:.2em">BACK TO JAIL</div>
+      <div style="width:480px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;letter-spacing:.2em">SETTINGS</div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 08 BOSS INTRO -->
+<div data-screen-label="08 Boss intro" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">08 BOSS INTRO · 1.6 S TITLE CARD</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.32);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiFight }}</pre></sc-if>
+    <div style="position:absolute;inset:0;background:rgba(59,73,57,.4)"></div>
+    <div style="position:absolute;left:0;right:0;top:330px;height:240px;background:rgba(59,73,57,.92);border-top:2px solid #69A062;border-bottom:2px solid #69A062;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:24px;font-size:24px;font-weight:600;letter-spacing:.5em"><div style="width:14px;height:14px;background:#69A062;transform:rotate(45deg)"></div>CELL III<div style="width:14px;height:14px;background:#69A062;transform:rotate(45deg)"></div></div>
+      <div style="font-size:112px;font-weight:600;letter-spacing:.25em;line-height:1;margin-right:-.25em">THE BELL</div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+<!-- 09 ENDING -->
+<div data-screen-label="09 Ending" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">09 ENDING</div>
+  <div style="position:relative;width:1950px;height:900px;background:#3B4939;overflow:hidden;outline:2px solid rgba(105,160,98,.35)">
+    <sc-if value="{{ showWorld }}" hint-placeholder-val="{{ true }}"><pre style="position:absolute;inset:0;margin:0;font:400 10px/7px 'IBM Plex Mono',monospace;color:rgba(105,160,98,.12);white-space:pre;overflow:hidden;pointer-events:none">{{ asciiHub }}</pre></sc-if>
+    <div style="position:absolute;left:0;right:0;top:130px;display:flex;flex-direction:column;align-items:center;gap:36px">
+      <div style="position:relative;width:220px;height:220px">
+        <div style="position:absolute;left:50px;top:50px;width:120px;height:120px;box-sizing:border-box;border:2px solid #69A062;transform:rotate(45deg)"></div>
+        <div style="position:absolute;left:88px;top:6px;width:44px;height:44px;background:#69A062;transform:rotate(45deg)"></div>
+        <div style="position:absolute;left:88px;top:170px;width:44px;height:44px;background:#69A062;transform:rotate(45deg)"></div>
+        <div style="position:absolute;left:6px;top:88px;width:44px;height:44px;background:#69A062;transform:rotate(45deg)"></div>
+        <div style="position:absolute;left:170px;top:88px;width:44px;height:44px;background:#69A062;transform:rotate(45deg)"></div>
+        <div style="position:absolute;left:84px;top:84px;width:52px;height:52px;background:#69A062;transform:rotate(45deg)"></div>
+      </div>
+      <div style="font-size:56px;font-weight:600;letter-spacing:.2em;margin-right:-.2em">THE GREEN SAPPHIRE IS WHOLE</div>
+      <div style="font-size:22px;letter-spacing:.2em;color:rgba(105,160,98,.75)">FIVE CELLS · TOTAL TIME 14:22.08 · HITS TAKEN 21</div>
+      <div style="width:440px;height:100px;box-sizing:border-box;border:2px solid #69A062;background:rgba(105,160,98,.15);display:flex;align-items:center;justify-content:center;gap:16px;font-size:28px;font-weight:600;letter-spacing:.2em;margin-top:24px"><span>▸</span>RETURN HOME</div>
+    </div>
+    <dc-import name="Guides" side="left" show="{{ showGuides }}" hint-size="1950px,900px" style="position:absolute;inset:0"></dc-import>
+  </div>
+</div>
+
+</div>
+
+<!-- STATES -->
+<div data-screen-label="States" style="display:flex;flex-direction:column;gap:16px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">STATES</div>
+  <div style="width:1950px;box-sizing:border-box;padding:64px;outline:2px solid rgba(105,160,98,.35);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:64px 48px;font-size:16px;letter-spacing:.15em">
+
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">MENU BUTTON · IDLE</div><div style="width:360px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;letter-spacing:.2em">PLAY</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">SELECTED / DEFAULT (REPLACES WHITE)</div><div style="width:360px;height:100px;box-sizing:border-box;border:2px solid #69A062;background:rgba(105,160,98,.15);display:flex;align-items:center;justify-content:center;gap:16px;font-size:30px;font-weight:600;letter-spacing:.2em"><span>▸</span>PLAY</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">PRESSED</div><div style="width:360px;height:100px;box-sizing:border-box;background:#69A062;color:#3B4939;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;letter-spacing:.2em;transform:scale(.97)">PLAY</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">DISABLED</div><div style="width:360px;height:100px;box-sizing:border-box;border:2px dashed rgba(105,160,98,.3);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;letter-spacing:.2em;color:rgba(105,160,98,.3)">PLAY</div></div>
+
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">ACTION · IDLE</div><div style="width:140px;height:140px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">HEAVY</div></div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">ACTION · PRESSED (SCALE .94)</div><div style="width:140px;height:140px;border-radius:50%;background:rgba(105,160,98,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transform:scale(.94);color:#3B4939"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">HEAVY</div></div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">ACTION · DISABLED (HUB, NO TARGET)</div><div style="width:140px;height:140px;border-radius:50%;box-sizing:border-box;border:2px dashed rgba(105,160,98,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(105,160,98,.3)"><div style="font-size:18px;font-weight:600;letter-spacing:.12em">HEAVY</div></div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">DODGE · COOLDOWN 0 → 0.5 S</div>
+      <div style="display:flex;gap:20px;align-items:center">
+        <sc-for list="{{ cooldowns }}" as="cd" hint-placeholder-count="3">
+          <div style="position:relative;width:116px;height:116px">
+            <svg width="116" height="116" style="position:absolute;inset:0"><circle cx="58" cy="58" r="55" fill="rgba(59,73,57,.45)" stroke="rgba(105,160,98,.25)" stroke-width="2"></circle><circle cx="58" cy="58" r="53" fill="none" stroke="#69A062" stroke-width="6" stroke-dasharray="{{ cd.dash }}" transform="rotate(-90 58 58)"></circle></svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;letter-spacing:.12em;color:rgba(105,160,98,.4)">DODGE</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">HEARTS · FULL / EMPTY / HIT FLASH</div><div style="display:flex;gap:10px;align-items:center"><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="#69A062" stroke="#69A062" stroke-width="2" stroke-linejoin="round"></path></svg><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="#69A062" stroke="#69A062" stroke-width="2" stroke-linejoin="round"></path></svg><svg width="34" height="32" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="#BBE2B6" stroke="#BBE2B6" stroke-width="2" stroke-linejoin="round"></path></svg><svg width="28" height="26" viewBox="0 0 28 26"><path d="M14 24 L3.5 13.5 A6.2 6.2 0 0 1 14 5 A6.2 6.2 0 0 1 24.5 13.5 Z" fill="none" stroke="rgba(105,160,98,.6)" stroke-width="2" stroke-linejoin="round"></path></svg></div><div style="font-size:14px;color:rgba(105,160,98,.7);line-height:1.6;text-wrap:pretty">Heart shape: 4-point polygon + 2 arcs (or a 12-point polygon). Lost heart flashes Jade at scale 1.2 for 0.15 s, then tweens to the empty outline.</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px;grid-column:span 2"><div style="color:rgba(105,160,98,.7)">BOSS BAR · HEALTH BARS LEFT (SQUARES = SPARE BARS)</div>
+      <div style="width:380px;display:flex;flex-direction:column;gap:8px">
+      <div style="text-align:center;font-size:20px;font-weight:600;letter-spacing:.15em">II · THE HOUND</div>
+      <div style="position:relative;height:22px;box-sizing:border-box;border:2px solid #69A062;border-radius:6px;background:#3B4939;overflow:hidden"><div style="position:absolute;left:0;top:0;bottom:0;width:{{ hpP1 }};background:#BBE2B6"></div></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px"><sc-for list="{{ pipsP1 }}" as="p" hint-placeholder-count="3"><sc-if value="{{ p.on }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px;background:#BBE2B6"></div></sc-if><sc-if value="{{ p.off }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px"></div></sc-if></sc-for></div>
+    </div>
+      <div style="width:508px;display:flex;flex-direction:column;gap:8px">
+      <div style="text-align:center;font-size:20px;font-weight:600;letter-spacing:.15em">III · THE BELL</div>
+      <div style="position:relative;height:22px;box-sizing:border-box;border:2px solid #69A062;border-radius:6px;background:#3B4939;overflow:hidden"><div style="position:absolute;left:0;top:0;bottom:0;width:{{ hpP2 }};background:#BBE2B6"></div></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px"><sc-for list="{{ pipsP2 }}" as="p" hint-placeholder-count="3"><sc-if value="{{ p.on }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px;background:#BBE2B6"></div></sc-if><sc-if value="{{ p.off }}"><div style="width:24px;height:24px;box-sizing:border-box;border:2px solid #69A062;border-radius:5px"></div></sc-if></sc-for></div>
+    </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">LOW HP · 2 HEARTS</div><div style="position:relative;width:360px;height:160px;outline:2px solid rgba(105,160,98,.35)"><div style="position:absolute;inset:0;border:14px solid rgba(187,226,182,.45)"></div></div><div style="font-size:14px;color:rgba(105,160,98,.7)">Alpha 0.15 ↔ 0.45, period 1.0 s</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">LOW HP · 1 HEART</div><div style="position:relative;width:360px;height:160px;outline:2px solid rgba(105,160,98,.35)"><div style="position:absolute;inset:0;border:14px solid rgba(187,226,182,.7)"></div></div><div style="font-size:14px;color:rgba(105,160,98,.7)">Alpha 0.25 ↔ 0.70, period 0.5 s</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">SAPPHIRE · CARRIED / DROPPED</div><div style="display:flex;gap:40px;align-items:center;height:60px;padding-left:10px"><div style="width:20px;height:20px;background:#69A062;transform:rotate(45deg)"></div><div style="width:20px;height:20px;background:#BBE2B6;transform:rotate(45deg)"></div></div><div style="font-size:14px;color:rgba(105,160,98,.7);line-height:1.6;text-wrap:pretty">Carried: Core diamond 40 above the player, bob 6 units, 1.2 s, plus the inverted HUD chip. Dropped: Jade on the floor, pulse scale 1 ↔ 1.25 at 0.8 s.</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">GATE LAMPS · EMPTY / SET / OPENING</div><div style="display:flex;gap:40px;align-items:center;height:60px"><div style="width:20px;height:20px;border-radius:50%;box-sizing:border-box;border:2px solid #69A062"></div><div style="width:20px;height:20px;border-radius:50%;background:#69A062"></div><div style="width:20px;height:20px;border-radius:50%;background:#BBE2B6"></div></div><div style="font-size:14px;color:rgba(105,160,98,.7);line-height:1.6;text-wrap:pretty">All four lamps turn Jade only when the gate opens (pulse 3×, 0.3 s each).</div></div>
+
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">PAUSE · IDLE / PRESSED</div><div style="display:flex;gap:24px"><div style="width:100px;height:100px;box-sizing:border-box;border:2px solid rgba(105,160,98,.6);background:rgba(59,73,57,.6);display:flex;align-items:center;justify-content:center;gap:12px"><div style="width:10px;height:36px;background:#69A062"></div><div style="width:10px;height:36px;background:#69A062"></div></div><div style="width:100px;height:100px;box-sizing:border-box;background:rgba(105,160,98,.5);display:flex;align-items:center;justify-content:center;gap:12px"><div style="width:10px;height:36px;background:#3B4939"></div><div style="width:10px;height:36px;background:#3B4939"></div></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">CELL LABEL · OPEN / CLEARED</div><div style="display:flex;gap:56px"><div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="font-size:30px;font-weight:600">IV</div><div>THE CHAIN</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.35"><div style="font-size:30px;font-weight:600">I</div><div>THE WARDEN</div><div style="font-size:14px">CLEARED</div></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">STICK · RESTING HINT / ACTIVE</div><div style="display:flex;gap:32px;align-items:center"><div style="position:relative;width:230px;height:230px;transform:scale(.6);margin:-46px"><div style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(105,160,98,.35)"></div><div style="position:absolute;left:65px;top:65px;width:100px;height:100px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(105,160,98,.35);background:rgba(105,160,98,.2)"></div></div><div style="position:relative;width:230px;height:230px;transform:scale(.6);margin:-46px"><div style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(105,160,98,.6)"></div><div style="position:absolute;left:120px;top:30px;width:100px;height:100px;border-radius:50%;background:rgba(105,160,98,.5)"></div></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:16px"><div style="color:rgba(105,160,98,.7)">PANEL FRAME</div><div style="position:relative;width:300px;height:140px;border:2px solid #69A062;background:rgba(59,73,57,.9)"><div style="position:absolute;left:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;top:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;left:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div><div style="position:absolute;right:-5px;bottom:-5px;width:8px;height:8px;background:#69A062"></div></div><div style="font-size:14px;color:rgba(105,160,98,.7)">2 stroke · 8×8 corner ticks centred on the corners</div></div>
+  </div>
+</div>
+
+<!-- SPEC -->
+<div data-screen-label="Spec sheet" style="display:flex;flex-direction:column;gap:48px;width:1950px">
+  <div style="font-size:28px;font-weight:600;letter-spacing:.15em">SPEC SHEET</div>
+  <div style="font-size:20px;line-height:1.6;max-width:1500px;text-wrap:pretty">Units are canvas units at 1950 × 900. "Safe TL" means the top-left corner of the safe area (135, 0); "Safe BR" is (1815, 852). x offsets go inward from the named edge, y offsets go down from the top or up from the bottom. On a 16:9 canvas (1950 × 1097) top-anchored items keep their y and bottom-anchored items move with the bottom edge. Centred items use the safe-area centre x = 975. Corner radius is 0 everywhere except circles.</div>
+  <sc-for list="{{ spec }}" as="t" hint-placeholder-count="4">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:22px;font-weight:600;letter-spacing:.2em;padding-bottom:10px;border-bottom:2px solid #69A062">{{ t.title }}</div>
+      <sc-for list="{{ t.rows }}" as="r" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:300px 260px 300px minmax(0,1fr);gap:24px;font-size:17px;line-height:1.5;padding:8px 0;border-bottom:1px solid rgba(105,160,98,.25)">
+          <div style="font-weight:600">{{ r.a }}</div><div>{{ r.b }}</div><div>{{ r.c }}</div><div style="text-wrap:pretty">{{ r.d }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-for>
+  <div style="font-size:18px;line-height:1.7;max-width:1500px;color:rgba(105,160,98,.8);text-wrap:pretty">Optional (beyond rects, circles, lines and text): the dodge cooldown ring is an arc (Godot <i>draw_arc</i>, or a fallback that fills the circle bottom-up with a clipped rect). Diamonds are 4-point polygons. Boss names other than THE MIRROR are placeholders.</div>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showGuides&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showWorld&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.ascii = {
+      home: this.make(3, [{t:'box',x:180,y:120,w:340,h:240},{t:'box',x:1430,y:120,w:340,h:240},{t:'box',x:180,y:560,w:340,h:240},{t:'box',x:1430,y:560,w:340,h:240}], .06),
+      hub: this.make(7, [
+        {t:'box',x:150,y:160,w:350,h:230},{t:'box',x:560,y:160,w:350,h:230},{t:'box',x:1040,y:160,w:350,h:230},{t:'box',x:1450,y:160,w:350,h:230},
+        {t:'ring',x:975,y:500,r:70},{t:'box',x:860,y:700,w:230,h:150,bars:true},{t:'g',x:1176,y:530,ch:'@'},{t:'box',x:40,y:130,w:1870,h:740}], .05),
+      fight: this.make(11, [{t:'box',x:60,y:150,w:1830,h:720},{t:'blob',x:1150,y:430,r:120},{t:'g',x:720,y:560,ch:'@'},{t:'g',x:726,y:567,ch:'/'}], .07),
+    };
+  }
+  h(x, y, s) { let n = (x * 374761393 + y * 668265263 + s * 1442695041) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; }
+  make(seed, shapes, dens) {
+    const C = 325, R = 129, g = [];
+    for (let r = 0; r < R; r++) { const row = []; for (let c = 0; c < C; c++) {
+      const d = .5 + .5 * Math.sin(c * .045 + seed) * Math.cos(r * .07 + seed * .3);
+      const v = this.h(c, r, seed);
+      row.push(v < d * dens ? ".,'`:"[Math.floor(v * 1000) % 5] : ' ');
+    } g.push(row); }
+    const set = (c, r, ch) => { if (r >= 0 && r < R && c >= 0 && c < C) g[r][c] = ch; };
+    for (const s of shapes) {
+      if (s.t === 'box') {
+        const c0 = Math.round(s.x / 6), r0 = Math.round(s.y / 7), c1 = Math.round((s.x + s.w) / 6), r1 = Math.round((s.y + s.h) / 7);
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+          const edge = r === r0 || r === r1 || c === c0 || c === c1 || c === c0 + 1 || c === c1 - 1;
+          if (edge) set(c, r, '#'); else if (s.bars && c % 4 === 0) set(c, r, '|'); else if (this.h(c, r, seed + 5) < .12) set(c, r, '.');
+        }
+      } else if (s.t === 'ring') {
+        const cc = s.x / 6, rr = s.y / 7;
+        for (let r = rr - 20; r <= rr + 20; r++) for (let c = cc - 20; c <= cc + 20; c++) {
+          const dd = Math.hypot((c - cc) * 6, (r - rr) * 7);
+          if (Math.abs(dd - s.r) < 5) set(Math.round(c), Math.round(r), 'o'); else if (dd < 18) set(Math.round(c), Math.round(r), '+');
+        }
+      } else if (s.t === 'blob') {
+        const cc = s.x / 6, rr = s.y / 7;
+        for (let r = rr - 25; r <= rr + 25; r++) for (let c = cc - 25; c <= cc + 25; c++) {
+          const dd = Math.hypot((c - cc) * 6, (r - rr) * 7) / s.r;
+          if (dd < 1 && this.h(c, r, 9) > dd * .7) set(Math.round(c), Math.round(r), dd < .4 ? '@' : dd < .7 ? '%' : '*');
+        }
+      } else set(Math.round(s.x / 6), Math.round(s.y / 7), s.ch);
+    }
+    return g.map(r => r.join('')).join('\n');
+  }
+  segs(n, f) { return Array.from({ length: n }, (_, i) => ({ on: i < f, off: i >= f })); }
+  renderVals() {
+    const hearts = f => Array.from({ length: 4 }, (_, i) => ({ full: i < f, empty: i >= f }));
+    return {
+      showGuides: this.props.showGuides ?? true,
+      showWorld: this.props.showWorld ?? true,
+      asciiHome: this.ascii.home, asciiHub: this.ascii.hub, asciiFight: this.ascii.fight,
+      hpP1: '75%', hpP2: '44%', pipsP1: this.segs(3, 3), pipsP2: this.segs(3, 2),
+      hearts3: hearts(3), hearts2: hearts(2),
+      volume: Array.from({ length: 10 }, (_, i) => ({ on: i < 7, off: i >= 7 })),
+      cooldowns: [0.1, 0.55, 1].map(p => ({ dash: `${(333 * p).toFixed(0)} 333` })),
+      cells: [
+        { x: 160, num: 'I', name: 'THE WARDEN', tag: 'CLEARED', op: .35 },
+        { x: 570, num: 'II', name: 'THE HOUND', tag: 'CLEARED', op: .35 },
+        { x: 1050, num: 'III', name: 'THE BELL', tag: 'SAPPHIRE TAKEN', op: .35 },
+        { x: 1460, num: 'IV', name: 'THE CHAIN', tag: '', op: 1 },
+      ],
+      spec: this.specRows || (this.specRows = this.rawSpec().map(t => ({ title: t.title, rows: t.rows.map(([a, b, c, d]) => ({ a, b, c, d })) }))),
+    };
+  }
+  rawSpec() {
+    return [
+        { title: 'TYPE · IBM PLEX MONO (GOOGLE FONTS, 400 + 600)', rows: [
+          ['Title', '600 · 112', 'letter-spacing 0.20 em', 'Home only. Inside a framed box, padding 28 × 64.'],
+          ['Display', '600 · 80 / 112', '0.30 em / 0.25 em', 'VICTORY, DEFEAT / boss intro name.'],
+          ['Heading', '600 · 48–56', '0.20–0.30 em', 'SETTINGS, PAUSED, ending line.'],
+          ['Button', '600 · 28–36', '0.20 em', 'Menu buttons. Action buttons 600 · 18 at 0.12 em.'],
+          ['HUD', '600 · 18–26', '0.12–0.15 em', 'Boss name, objective (26), carry chip (22). Timer 400 · 24, tabular figures.'],
+          ['Caption', '400 · 14–16', '0.20 em', 'Captions and secondary lines. Core 60 %.'],
+        ]},
+        { title: 'COLOUR · THREE HEXES + ALPHA', rows: [
+          ['Background / panel', '#3B4939 100 %', 'panel 90 %, button 60 %', 'Result overlay 72 %, pause overlay 82 %, intro dim 40 %, intro band 92 %.'],
+          ['Text, icons, strokes', '#69A062 100 %', 'idle stroke 60 %', 'Secondary text 75 %, hints 60 %, disabled 30 %, guides and stick resting 35 %.'],
+          ['Selected / default', '#69A062 15 % fill', '+ stroke 100 %, ▸ marker', 'Replaces the white hover. Marks the default action on each screen.'],
+          ['Pressed', '#69A062 100 % (menu)', '50 % (HUD), label #3B4939', 'Inversion means "this is happening", without using Jade.'],
+          ['Signal (reserved)', '#BBE2B6 100 %', 'low HP 15–70 %', 'Boss health and spare bars, low-HP bands, hit flash, dropped sapphire, gate opening. Nothing else.'],
+        ]},
+        { title: 'LAYOUT · ANCHORS AND OFFSETS', rows: [
+          ['Pause button', 'Safe TL', '+24, +24', '100 × 100, stroke 2. Bars 10 × 36, gap 12. Fight and hub.'],
+          ['Hearts', 'Safe TL', '+152, +32', '4 heart shapes 28 × 26, gap 10. Full: Core fill. Empty: Core 60 % stroke 2.'],
+          ['Run timer', 'Safe TL', '+152, +70', '400 · 24, m:ss.cc. Inside the safe area, so never under the notch.'],
+          ['Boss name', 'Top centre', 'y +20', '600 · 20, centred above the bar.'],
+          ['Boss bar', 'Top centre', 'y +54', '560 × 22, radius 6, Core stroke 2, Moss track. Jade fill width = HP / max HP.'],
+          ['Spare bars', 'Bar BR', 'y +8 below bar', 'One square 24 × 24 (radius 5, gap 10, right-aligned) per full health bar still to burn through after the current one. Remaining: Jade fill. Used: outline.'],
+          ['Low-HP bands', 'Screen edges', '0', '14 thick, full-bleed, ignoring the safe area.'],
+          ['Stick (resting hint)', 'Safe BL', '+150, −170 (centre)', 'Ring r 115 stroke 2 (35 %). Knob r 50, fill 20 %. Active: ring 60 %, knob 50 %.'],
+          ['HEAVY', 'Safe BR', '−130, −150 (centre)', 'r 70. Label 600 · 18, centred.'],
+          ['LIGHT', 'Safe BR', '−295, −77 (centre)', 'r 60.'],
+          ['DODGE', 'Safe BR', '−160, −322 (centre)', 'r 58. Cooldown ring stroke 6, inset 2.'],
+          ['Objective', 'Top centre', 'y +28', '600 · 26 + four diamonds 16 (set: fill, missing: stroke) + "2 / 4".'],
+          ['Carry chip', 'Top centre', 'y +82', 'Height 52, padding 24, Core fill, Moss text + diamond 18. Shown only while carrying.'],
+          ['Cell labels', 'World (cell top)', 'centred, +26 inside', 'Numeral 600 · 30, name 400 · 16. Cleared: whole group 35 %.'],
+          ['Gate V + lamps', 'World', 'gate bottom-centre', 'Keep gate V at x 860–1090 so it clears HEAVY (x ≥ 1460). Lamps Ø 20, gap 16.'],
+          ['Menus and sheets', 'Screen centre', 'top +120 to +220', 'Flex column, gap 16. Buttons 360–480 × 100. Never in the right third, except result CONTINUE, which is centred.'],
+          ['Result stats', 'Centre column', '3-col grid, gap 14 × 56', 'Values right-aligned, so long values grow left and stay centred.'],
+        ]},
+        { title: 'MOTION · TWEENS ONLY', rows: [
+          ['Button press', 'scale 1 → 0.94/0.97', '0.06 s ease-out', 'Back to 1 over 0.10 s ease-out on release.'],
+          ['Selected marker', '▸ slides x −8 → 0', '0.12 s ease-out', 'Fill fades 0 → 15 % in the same tween.'],
+          ['Boss damage', 'fill width shrinks', '0.18 s ease-out', 'A Core 50 % trailing chunk follows after 0.3 s. When the bar empties and a spare is left, the rightmost Jade square empties (scale 1.3 → 1) and the bar refills over 0.4 s.'],
+          ['Heart lost', 'Jade flash, scale 1.2 → 1', '0.15 s + 0.2 s fade', 'Ends on the empty outline.'],
+          ['Low HP pulse', 'alpha sine', '1.0 s (2♥) / 0.5 s (1♥)', '2 hearts: 0.15 ↔ 0.45. 1 heart: 0.25 ↔ 0.70.'],
+          ['Dodge cooldown', 'arc 0 → 360°', '0.5 s linear', 'When it is full, the label goes 40 % → 100 % and the button scales 1.08 → 1 over 0.12 s.'],
+          ['Carry chip', 'slide y −20 → 0 + fade', '0.2 s ease-out', 'Reverse on deposit. World diamond bobs 6 units over a 1.2 s sine.'],
+          ['Boss intro', 'band scaleY 0 → 1', '0.15 s ease-out', 'Name slides x +40 → 0 and fades in over 0.25 s. Hold 1.0 s, fade out 0.2 s. Total 1.6 s, and input stays locked until the fade-out.'],
+          ['Result / pause', 'overlay fade + panel y +24 → 0', '0.25 s ease-out', 'Defeat waits 0.4 s, then shows RETRY as the large first button.'],
+          ['Gate opening', 'lamps Core → Jade, pulse ×3', '0.3 s each', 'The only Jade moment outside combat.'],
+        ]},
+      ];
+  }
+}
+</script>
+</body>
+</html>
