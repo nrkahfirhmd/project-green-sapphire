@@ -223,6 +223,22 @@ func _think(delta: float) -> void:
 	global_position = clamp_floor(global_position)
 
 
+func _cancel() -> void:
+	state = S.IDLE
+	kind = ""
+	_chain = ""
+	_wait = 0.5
+	for i in KEYS:
+		if _mode[i] == K.FORM or _mode[i] == K.DIAL or _mode[i] == K.FLY:
+			_mode[i] = K.ORBIT
+
+
+## Staggered: the keys still drift home round the core.
+func _think_break(delta: float) -> void:
+	super(delta)
+	_keys(delta)
+
+
 func _pick() -> String:
 	var pool := ["wall", "volley", "lock"]
 	if phase >= 2:

@@ -7,11 +7,17 @@ extends CharacterBody2D
 ## A boss's global_position is the spot the player's sword has to reach; each
 ## boss draws itself around that point. Every boss has one timer shape whose
 ## colour comes from eye_color(): Deep Moss -> Sapphire Core -> Pale Jade.
+##
+## Breaking a health bar staggers the boss for BREAK_TIME: whatever it was
+## doing is cancelled (_cancel), it can't be hurt except by the ultimate, and
+## anything the new phase brings in fades in during the break.
 
 signal died
 signal health_changed(current: int, max: int)
 signal phase_changed(phase: int)
 signal telegraph_started(kind: String)
+
+const BREAK_TIME := 1.0
 
 var max_hp := 12
 var hp := 12
@@ -26,6 +32,7 @@ var _kick := Vector2.ZERO    # recoil from the last hit, springs back to zero
 var _shard_acc := 0.0
 var _t := 0.0                # time alive, for idle motion
 var _death_t := 0.0
+var breaking := 0.0          # seconds of phase-break stagger left
 
 
 func _ready() -> void:
@@ -45,9 +52,26 @@ func _physics_process(delta: float) -> void:
 		_shatter(delta)
 		velocity = velocity.move_toward(Vector2.ZERO, 400.0 * delta)
 		move_and_slide()
+	elif breaking > 0.0:
+		breaking = maxf(0.0, breaking - delta)
+		eye_t = 0.0
+		_kick = Vector2(randf_range(-5.0, 5.0), randf_range(-2.0, 2.0)) * (breaking / BREAK_TIME)
+		_think_break(delta)
 	else:
 		_think(delta)
 	queue_redraw()
+
+
+## Per-boss motion while staggered by a phase break; by default it stops.
+func _think_break(delta: float) -> void:
+	velocity = velocity.move_toward(Vector2.ZERO, 900.0 * delta)
+	move_and_slide()
+
+
+## Drop whatever attack is under way and clear its hazards; each boss knows
+## what that means for it. Called as a health bar breaks.
+func _cancel() -> void:
+	pass
 
 
 ## Per-boss behaviour, called every physics frame while alive.
@@ -69,7 +93,7 @@ func _on_hit(_amount: int) -> void:
 func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	if dead:
 		return
-	if not pierce and not _can_be_hit():
+	if not pierce and (breaking > 0.0 or not _can_be_hit()):
 		_burst(from_pos.lerp(global_position, 0.6), Game.SAPPHIRE_CORE, 6)
 		_request_shake(2.0)
 		_recoil(from_pos, 5.0)
@@ -86,6 +110,9 @@ func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	var marks := phases()
 	while phase - 1 < marks.size() and hp <= int(marks[phase - 1]) and hp > 0:
 		phase += 1
+		breaking = BREAK_TIME
+		_cancel()
+		_burst(global_position, Game.PALE_JADE, 26)
 		phase_changed.emit(phase)
 		_request_shake(18.0)
 		Game.hit_stop(0.12)

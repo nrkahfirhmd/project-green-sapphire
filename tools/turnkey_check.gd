@@ -71,9 +71,15 @@ func _ready() -> void:
 	b.state = b.S.IDLE
 	b.take_hit(7, b.global_position)
 	assert(b.phase == 2, "phase 2 didn't start at 18")
+	assert(b.breaking > 0.0 and b.state == b.S.IDLE, "breaking a bar didn't stagger it")
+	var held: int = b.hp
+	b.take_hit(1, b.global_position)
+	assert(b.hp == held, "hurt while staggered by a phase break")
+	b.breaking = 0.0
 	b._open_t = 5.0
 	b.take_hit(8, b.global_position)
 	assert(b.phase == 3, "phase 3 didn't start at 10")
+	b.breaking = 0.0
 
 	# dial: only the key lined up with the player opens the shield
 	b._open_t = 0.0
