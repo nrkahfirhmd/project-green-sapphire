@@ -7,8 +7,12 @@ extends "res://scripts/bosses/boss_base.gd"
 ##   while it's in reach) and it rebounds; the arm locks and the body drops to
 ##   the floor, open to every hit, for DOWN_TIME. Riposted into the bookshelves
 ##   along the back wall, the blade jams and the body stays down for JAM_TIME.
-## The blade itself can also be hit while it rests after an attack, or sticks
-##   in the floor after a Cut.
+## The blade itself can also be hit between attacks, while it rests after one,
+##   or while it sticks in the floor after a Cut. Whatever can be hit wears a
+##   bright pulsing ring that glides to it (from the blade to the body after a
+##   riposte), and a shimmer sounds as it opens.
+## Phase 2 chains: a Swing runs straight into a Cut, an Unwind into Bookfall.
+## The first fight explains itself once: how to riposte, then where to strike.
 ##
 ## Attacks
 ##   Swing: full swings whose arm stretches and shortens as it goes, so neither
@@ -77,6 +81,12 @@ var _drop := 0.0                 # 0 body on the rail .. 1 body on the floor
 var _timer := 0.0
 var _total := 1.0
 var _wait := 1.4
+var _chain := ""                 # phase 2+: the attack that follows straight on
+var _mark := Vector2.INF         # where the "can be hit" ring is drawn, gliding
+var _open := false               # last frame's _can_be_hit(), to sound the window opening
+var _parry_t := 0.0              # starburst at a riposte, 1 -> 0
+var _parry_at := Vector2.ZERO
+static var _taught := 0          # hints shown this session: 1 riposte, 2 strike the body
 var _amp := 1.15
 var _period := 1.4
 var _phase_t := 0.0
@@ -108,7 +118,7 @@ func _ready() -> void:
 
 
 func _can_be_hit() -> bool:
-	return state == S.REST or state == S.DOWN
+	return state == S.IDLE or state == S.REST or state == S.DOWN
 
 
 func _blade(a: float, length: float) -> Vector2:
@@ -169,8 +179,14 @@ func _riposte(at: Vector2) -> void:
 	_timer = JAM_TIME if jammed else DOWN_TIME
 	velocity = Vector2.ZERO
 	_burst(at, Game.PALE_JADE, 16)
+	_parry_t = 1.0
+	_parry_at = at
+	_chain = ""
 	_request_shake(12.0)
 	sfx("riposte")
+	if _taught == 1:
+		_taught = 2
+		_hint("PARRIED! STRIKE ITS BODY")
 	if jammed:
 		sfx("jam")              # the blade bites into the shelves
 	Game.hit_stop(0.1)
@@ -193,6 +209,7 @@ func _think(delta: float) -> void:
 		pile.t -= delta
 	_piles = _piles.filter(func(pl): return pl.t > 0.0)
 	_drop = move_toward(_drop, 1.0 if state == S.DOWN else 0.0, delta * 4.0)
+	_parry_t = maxf(0.0, _parry_t - delta / 0.5)
 	if not _clocked() and state != S.DOWN:
 		_anchor = _anchor.lerp(pivot, 1.0 - exp(-5.0 * delta))
 
@@ -200,11 +217,11 @@ func _think(delta: float) -> void:
 		S.IDLE:
 			eye_t = move_toward(eye_t, 0.0, delta * 2.0)
 			pivot.x = clampf(move_toward(pivot.x, player_pos().x, RAIL_SPEED * delta), r.position.x + 120.0, r.end.x - 120.0)
-			ang = lerp_angle(ang, sin(_t * 1.6) * 0.3, delta * 4.0)
+			ang = lerp_angle(ang, sin(_t * 1.6) * 0.3, delta * 1.5)     # eases back: no snapping across
 			arm = move_toward(arm, ARM, 400.0 * delta)
 			_wait -= delta
 			if _wait <= 0.0:
-				_begin(_pick())
+				_begin(_chain if _chain != "" else _pick())
 		S.TELEGRAPH:
 			_timer -= delta
 			eye_t = clampf(1.0 - _timer / _total, 0.0, 1.0)
@@ -223,12 +240,31 @@ func _think(delta: float) -> void:
 	_prev = _blade(ang, arm)
 	_prev2 = _blade(-ang, arm)
 	global_position = _hit_point()
+	# the "can be hit" ring glides to whatever can be hit
+	_mark = global_position if _mark == Vector2.INF else _mark.lerp(global_position, 1.0 - exp(-10.0 * delta))
+	var open := _can_be_hit()
+	if open and not _open and state != S.IDLE:
+		Sfx.play("ready", -4.0)
+	_open = open
+
+
+func _cancel() -> void:
+	_books.clear()
+	_dropped = 0
+	_chain = ""
+	_idle()
+
+
+func _hint(text: String) -> void:
+	var hud := get_tree().current_scene.get_node_or_null("UI/HUD") if get_tree().current_scene else null
+	if hud and hud.has_method("hint"):
+		hud.hint(text)
 
 
 func _idle() -> void:
 	state = S.IDLE
 	kind = ""
-	_wait = randf_range(0.4, 0.9) if phase >= 2 else randf_range(0.8, 1.4)
+	_wait = 0.25 if _chain != "" else (randf_range(0.4, 0.9) if phase >= 2 else randf_range(0.8, 1.4))
 
 
 func _pick() -> String:
@@ -241,8 +277,12 @@ func _pick() -> String:
 
 
 func _begin(k: String) -> void:
+	_chain = ""
 	kind = k
 	_last = k
+	if _taught == 0 and k in ["swing", "unwind", "rush"]:
+		_taught = 1
+		_hint("THRUST THE BLADE AS IT REACHES YOU")
 	state = S.TELEGRAPH
 	_total = spd(ATK[k]["windup"])
 	_timer = _total
@@ -373,6 +413,14 @@ func _sweep(a: Vector2, b: Vector2) -> void:
 func _rest() -> void:
 	state = S.REST
 	_timer = spd(ATK[kind]["rest"])
+	if kind == "swing" and phase >= 2:
+		# keep the blade nearer the player; the mirrored one folds away
+		if _blade(-ang, arm).distance_to(player_pos()) < _blade(ang, arm).distance_to(player_pos()):
+			ang = -ang
+	if phase >= 2 and _chain == "":
+		_chain = {"swing": "cut", "unwind": "books"}.get(kind, "")
+		if _chain != "":
+			_timer = 0.35
 	if kind != "cut":
 		_request_shake(4.0)
 
@@ -441,6 +489,27 @@ func _draw() -> void:
 	draw_colored_polygon(_diamond(Vector2.ZERO, 12 + 4 * eye_t, 14 + 4 * eye_t), eye_color())
 	draw_set_transform(Vector2.ZERO)
 
+	# open to hits: a bright double ring that pulses, with four chevrons
+	# pointing in. It glides, so a riposte visibly hands it to the body.
+	if _can_be_hit() and not dead and _mark != Vector2.INF:
+		var m := L(_mark) + Vector2(0, -20)
+		var pulse := 0.5 + 0.5 * sin(_t * 9.0)
+		var rr := 44.0 + 8.0 * pulse
+		draw_arc(m, rr, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.95), 4.0)
+		draw_arc(m, rr + 10.0, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.4 + 0.4 * pulse), 2.0)
+		for k in 4:
+			var d := Vector2(1, 0).rotated(PI * 0.25 + k * PI * 0.5)
+			var tip := m + d * (rr + 14.0)
+			draw_colored_polygon(PackedVector2Array([tip, tip + d * 16.0 + d.orthogonal() * 8.0, tip + d * 16.0 - d.orthogonal() * 8.0]),
+				Color(Game.SAPPHIRE_CORE, 0.9))
+	# a riposte: a starburst where blade met rapier
+	if _parry_t > 0.0:
+		var pa := L(_parry_at) + Vector2(0, -BLADE_LIFT)
+		for k in 8:
+			var d := Vector2(1, 0).rotated(TAU * k / 8.0)
+			draw_line(pa + d * 20.0, pa + d * (30.0 + 90.0 * (1.0 - _parry_t)), Color(Game.PALE_JADE, _parry_t), 5.0)
+		draw_circle(pa, 18.0 * _parry_t, Game.PALE_JADE)
+
 
 ## Arm from the body down to a blade whose floor point is `at` (in drawing
 ## space). While the blade is attacking and within reach of the player, its
@@ -466,9 +535,10 @@ func _draw_arm(body: Vector2, at: Vector2, a: float, s: float, attacking: bool) 
 	inner.reverse()
 	draw_colored_polygon(outer + inner, body_color())
 	var in_reach := attacking and (at + global_position).distance_to(player_pos()) <= RIPOSTE_REACH
-	draw_polyline(outer, Game.PALE_JADE if in_reach else Color(Game.SAPPHIRE_CORE, 0.6), 4.0 if in_reach else 2.0)
-	if resting:
-		draw_arc(at, 30, 0, TAU, 24, Color(Game.SAPPHIRE_CORE, 0.6), 2.0)
+	draw_polyline(outer, Game.PALE_JADE if in_reach else Color(Game.SAPPHIRE_CORE, 0.6), 6.0 if in_reach else 2.0)
+	if in_reach:
+		# the riposte window: the edge blazes and a ring closes on it
+		draw_arc(blade + bulge * 0.5, 50.0 + 20.0 * sin(_t * 24.0), 0, TAU, 24, Color(Game.PALE_JADE, 0.7), 3.0)
 
 
 ## A telegraph band along the path a blade will take, f(0..1) -> floor point.

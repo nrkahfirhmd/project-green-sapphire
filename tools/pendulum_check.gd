@@ -21,7 +21,7 @@ func _ready() -> void:
 	b.player = p
 
 	assert(b.max_hp == 20 and b.phases() == [15, 10], "health / phases wrong")
-	assert(not b._can_be_hit(), "nothing should be hittable at the start")
+	assert(b._can_be_hit(), "the hanging blade should be hittable between attacks")
 
 	# riposte: a swinging blade in reach, met by a thrust, drops the body
 	b._begin("swing")
@@ -71,8 +71,17 @@ func _ready() -> void:
 	b.state = b.S.DOWN
 	b.take_hit(5, b.global_position)
 	assert(b.phase == 2, "phase 2 didn't start at 15")
+	assert(b.state == b.S.IDLE and b.breaking > 0.0, "breaking a bar didn't stand it up and stagger it")
+	b.breaking = 0.0
+	b.state = b.S.DOWN
 	b.take_hit(5, b.global_position)
 	assert(b.phase == 3, "phase 3 didn't start at 10")
+	b.breaking = 0.0
+	# phase 2+ chains: a swing's rest runs straight into a cut
+	b.kind = "swing"
+	b._rest()
+	assert(b._chain == "cut", "a phase-2 swing didn't chain into a cut")
+	b._chain = ""
 
 	# clockwork: riposting a hand stops the clock with the body down mid-hall
 	b._idle()
