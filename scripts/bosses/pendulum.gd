@@ -171,6 +171,8 @@ func _riposte(at: Vector2) -> void:
 	_burst(at, Game.PALE_JADE, 16)
 	_request_shake(12.0)
 	sfx("riposte")
+	if jammed:
+		sfx("jam")              # the blade bites into the shelves
 	Game.hit_stop(0.1)
 
 

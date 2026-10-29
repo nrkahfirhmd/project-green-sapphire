@@ -283,9 +283,15 @@ func _on_boss_died() -> void:
 	boss.collision_mask = 0
 
 
+## Leaving before the sapphire is taken (quit from pause) mustn't leave it humming.
+func _exit_tree() -> void:
+	Sfx.loop("crystal_loop", false)
+
+
 func _on_crystal_landed() -> void:
 	Haptics.play("crystal_land")
 	Sfx.play("crystal_land")
+	Sfx.loop("crystal_loop", true, -8.0)     # it hums on the floor until it's taken
 	spawn_ring(_crystal, 120.0, Game.PALE_JADE, 0.45)
 	spawn_burst(_crystal, Game.SAPPHIRE_CORE, 10, 160.0)
 
@@ -293,6 +299,7 @@ func _on_crystal_landed() -> void:
 func _take_crystal() -> void:
 	Haptics.play("pickup")
 	Sfx.play("pickup", 0.0, 0.0)
+	Sfx.loop("crystal_loop", false)
 	spawn_burst(_crystal, Game.PALE_JADE, 24, 320.0)
 	spawn_ring(_crystal, 200.0, Game.PALE_JADE, 0.5)
 	add_shake(10.0)

@@ -11,7 +11,9 @@ extends Node
 ## (glass under boss_death, a body fall under death) sits on a synthesised
 ## sound without touching either. Sources and licences: media/sfx/CREDITS.md.
 ##
-## Ambience: one looping amb_<place>.ogg at a time, crossfaded on change.
+## Ambience: one looping amb_<place>.wav at a time, crossfaded on change.
+## Loops (amb_*, *_loop) are cut by tools/make_foley.py with their seam
+## already crossfaded, and set to loop here; loop() holds any other one on.
 
 const DIR := "res://media/sfx/"
 const VOICES := 16
@@ -25,16 +27,19 @@ var _voices: Array[AudioStreamPlayer] = []
 var _next := 0
 var _amb: AudioStreamPlayer
 var _amb_name := ""
+var _loops := {}                 # name -> AudioStreamPlayer held on by loop()
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS    # the pause menu has sounds too
 	for f in ResourceLoader.list_directory(DIR):
-		if f.ends_with(".wav") or f.ends_with(".ogg"):
-			var s: AudioStream = load(DIR + f)
-			if s is AudioStreamOggVorbis:
-				s.loop = true
+		if f.ends_with(".wav"):
+			var s: AudioStreamWAV = load(DIR + f)
 			var key := f.get_slice(".", 0)
+			if key.begins_with("amb_") or key.ends_with("_loop"):
+				s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+				s.loop_begin = 0
+				s.loop_end = int(s.get_length() * s.mix_rate)
 			if not _streams.has(key):
 				_streams[key] = []
 			# the bare name first, its layers after
@@ -89,6 +94,27 @@ func ambience(place: String) -> void:
 		_amb.volume_db = -60.0
 		_amb.play())
 	tw.tween_property(_amb, "volume_db", AMB_DB, AMB_FADE)
+
+
+## Holds a looping sound on (the dropped sapphire's hum) until turned off.
+func loop(name: String, on := true, db := 0.0) -> void:
+	var p: AudioStreamPlayer = _loops.get(name)
+	if not on:
+		if p:
+			_loops.erase(name)
+			var tw := p.create_tween()
+			tw.tween_property(p, "volume_db", -60.0, 0.4)
+			tw.tween_callback(p.queue_free)
+		return
+	var s: Array = _streams.get(name, [])
+	if p or s.is_empty():
+		return
+	p = AudioStreamPlayer.new()
+	p.stream = s[0]
+	p.volume_db = db
+	add_child(p)
+	p.play()
+	_loops[name] = p
 
 
 ## A free voice, else the one that started longest ago.

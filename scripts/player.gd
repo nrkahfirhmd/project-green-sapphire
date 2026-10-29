@@ -210,6 +210,8 @@ func _do_free(delta: float) -> void:
 		var st := signf(sin(_walk))
 		if st != _step and _walk_amp > 0.6:
 			_burst(global_position + Vector2(_step * 6.0, 0), Color(Game.SAPPHIRE_CORE, 0.5), 3, 70.0)
+			if is_in_group("player"):
+				Sfx.play("step_%d" % randi_range(1, 4), -6.0, 0.08)
 		_step = st
 	else:
 		_walk_amp = move_toward(_walk_amp, 0.0, delta * 6.0)
