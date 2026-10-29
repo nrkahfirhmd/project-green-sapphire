@@ -26,7 +26,9 @@ extends "res://scripts/bosses/boss_base.gd"
 ##   4 memory of the Prism: crystal spikes rise around the player, block
 ##     movement and bounce a ricochet; its beams bend through them.
 ##   5 memory of the Hourglass: a sand clock drains over its head and ends in
-##     Time's Up; a dead-centre thrust while its neck glows flips it.
+##     Time's Up; a dead-centre thrust while its neck glows flips it. Sand
+##     falls on marked spots, sinkholes open under the player and pull, and
+##     every strike it lands is echoed in sand a moment later.
 ##   6 Shatter: three shards of it circle the player with the real one, all
 ##     copying. A shard breaks from one hit and reforms later; only the real
 ##     one (the face diamond) takes damage.
@@ -61,7 +63,8 @@ const CUT_W := 40.0
 # memories
 const KEYS := 4
 const KEY_ORBIT := 90.0
-const KEY_SPEED := 900.0
+const KEY_SPEED := 700.0
+const KEY_WARN := 0.55           # a key glows and aims this long before it flies
 const KEY_R := 16.0
 const KEY_EVERY := 2.5
 const KNOCK_TIME := 4.0
@@ -76,7 +79,17 @@ const SPIKE_EVERY := 3.0
 const SPIKE_LIFE := 5.0
 const BEAM_EVERY := 4.0
 const BEAM_W := 22.0
-const CLOCK_TIME := 14.0
+const CLOCK_TIME := 10.0
+const FALL_EVERY := 3.0          # phase 5: sand drops on marked spots round the player
+const FALL_WARN := 1.0
+const FALL_R := 60.0
+const PIT_EVERY := 4.5           # ...and a sinkhole opens under them
+const PIT_WARN := 0.9
+const PIT_LIFE := 4.0
+const PIT_R := 85.0
+const PIT_CORE := 24.0
+const PIT_PULL := 130.0
+const ECHO_LAG := 0.6            # its strikes repeat in sand this much later
 const TIMESUP_R := 480.0
 const TIMESUP_WINDUP := 1.2
 const NECK_R := 24.0
@@ -116,7 +129,7 @@ var _star_done := 0
 var _streaks: Array = []         # {a, b, age}
 var _neck_t := 0.0
 # memories
-var _keys: Array = []            # {p, mode: "orbit"/"fly"/"back"/"out", v, t}
+var _keys: Array = []            # {p, mode: "orbit"/"aim"/"fly"/"back"/"out", v, t}
 var _key_cd := KEY_EVERY
 var _pivot := Vector2.ZERO
 var _blade_ang := 0.0
@@ -129,6 +142,11 @@ var _beam_cd := BEAM_EVERY
 var _beam_aim := Vector2.ZERO
 var _beam_t := 0.0               # >0 while a beam is warning/firing
 var _clock := 1.0
+var _falls: Array = []           # {p, t}: sand about to land
+var _pits: Array = []            # {p, t}: t < PIT_LIFE once open, counting down
+var _fall_cd := FALL_EVERY
+var _pit_cd := 2.0
+var _sand_echo: Array = []       # {from: Array[Vector2], aim, reach, w, t}
 var _shards: Array = []          # {pup, slot, alive, t}
 var _spin := 0.0
 var _swap_cd := SHARD_SWAP
@@ -166,6 +184,9 @@ func _on_phase(p: int) -> void:
 	cracks = 0
 	_keys.clear()
 	_spikes.clear()
+	_falls.clear()
+	_pits.clear()
+	_sand_echo.clear()
 	_beam_t = 0.0
 	var r := arena_rect()
 	match p:
@@ -180,7 +201,8 @@ func _on_phase(p: int) -> void:
 		6:
 			for i in SHARDS:
 				var pup := _puppet()
-				_shards.append({"pup": pup, "slot": i + 1, "alive": true, "t": 0.0})
+				pup.hide()
+				_shards.append({"pup": pup, "slot": i + 1, "alive": false, "t": 0.05})
 			move_child(_eye, -1)
 
 
@@ -205,7 +227,7 @@ func on_thrust(a: Vector2, b: Vector2, width: float) -> void:
 			continue
 		if k.mode == "fly":
 			k.mode = "back"
-		elif k.mode == "orbit":
+		elif k.mode == "orbit" or k.mode == "aim":
 			k.mode = "out"
 			k.v = (b - a).normalized() * 420.0
 			k.t = KNOCK_TIME
@@ -435,6 +457,25 @@ func _think(delta: float) -> void:
 		global_position = clamp_floor(global_position)
 
 
+func _cancel() -> void:
+	_later.clear()
+	_queued = ""
+	_beam_t = 0.0
+	_idle()
+
+
+## Staggered: new shards gather into their slots, fading in, and only join
+## the fight once the break is over.
+func _think_break(delta: float) -> void:
+	super(delta)
+	for sh in _shards:
+		if not sh.alive:
+			sh.pup.show()
+			sh.pup.modulate.a = 1.0 - breaking / BREAK_TIME
+			var slot := player_pos() + Vector2(SHARD_R, 0).rotated(_spin + TAU * int(sh.slot) / (SHARDS + 1))
+			sh.pup.global_position = (sh.pup.global_position as Vector2).move_toward(clamp_floor(slot), MOVE * 3.0 * delta)
+
+
 func _idle() -> void:
 	state = S.IDLE
 	real.state = P_FREE
@@ -511,11 +552,26 @@ func _strike() -> void:
 	var half_w := _width() * 0.5
 	_request_shake(10.0 if _atk != "light" else 5.0)
 	sfx(_atk)
-	for from in _bodies():
-		var q := Geometry2D.get_closest_point_to_segment(player_pos(), from, from + _aim * reach)
+	if phase == 5:
+		_sand_echo.append({"from": _bodies(), "aim": _aim, "reach": reach, "w": half_w, "t": ECHO_LAG})
+	_strike_from(_bodies(), _aim, reach, half_w)
+
+
+func _strike_from(bodies: Array, aim: Vector2, reach: float, half_w: float) -> void:
+	for from in bodies:
+		var q := Geometry2D.get_closest_point_to_segment(player_pos(), from, from + aim * reach)
 		if q.distance_to(player_pos()) <= half_w + 16.0:
 			hurt_player(1, from)
 			return
+
+
+## Phase 5's sinkholes pull the player (player.gd asks every frame).
+func pull_at(p: Vector2) -> Vector2:
+	for pit in _pits:
+		var d: Vector2 = pit.p - p
+		if float(pit.t) <= PIT_LIFE and d.length() < PIT_R and d.length() > 2.0:
+			return d.normalized() * PIT_PULL
+	return Vector2.ZERO
 
 
 func _reach() -> float:
@@ -550,9 +606,18 @@ func _memories(delta: float) -> void:
 					"orbit":
 						k.p = (k.p as Vector2).lerp(global_position + Vector2(KEY_ORBIT, 0).rotated(_t * 1.5 + TAU * i / KEYS), 1.0 - exp(-6.0 * delta))
 						if _key_cd <= 0.0 and not fired:
-							k.mode = "fly"
+							# it stops orbiting, glows and draws its line first:
+							# the aim is set now and doesn't follow the player
+							k.mode = "aim"
+							k.t = KEY_WARN
 							k.v = (player_pos() - (k.p as Vector2)).normalized() * KEY_SPEED
 							fired = true
+							telegraph("key")
+					"aim":
+						k.t = float(k.t) - delta
+						k.p = (k.p as Vector2) - (k.v as Vector2).normalized() * 30.0 * delta    # drawing back
+						if float(k.t) <= 0.0:
+							k.mode = "fly"
 					"fly":
 						k.p = (k.p as Vector2) + (k.v as Vector2) * delta
 						if (k.p as Vector2).distance_to(player_pos()) < 30.0 and _hit_cd <= 0.0:
@@ -617,6 +682,7 @@ func _memories(delta: float) -> void:
 					state = S.TIMESUP
 					_timer = TIMESUP_WINDUP
 					telegraph("timesup")
+			_sands(delta)
 		6:
 			_spin += SHARD_SPIN * delta
 			_swap_cd -= delta
@@ -636,8 +702,47 @@ func _memories(delta: float) -> void:
 					if float(sh.t) <= 0.0:
 						sh.alive = true
 						sh.pup.show()
+						sh.pup.modulate.a = 1.0
 				var slot := player_pos() + Vector2(SHARD_R, 0).rotated(_spin + TAU * int(sh.slot) / (SHARDS + 1))
 				sh.pup.global_position = (sh.pup.global_position as Vector2).move_toward(clamp_floor(slot), MOVE * 1.5 * delta)
+
+
+## Phase 5's sand: marked falls, sinkholes and the echoes of its strikes.
+func _sands(delta: float) -> void:
+	_fall_cd -= delta
+	if _fall_cd <= 0.0:
+		_fall_cd = FALL_EVERY
+		_falls.append({"p": player_pos(), "t": FALL_WARN})
+		for i in 2:
+			_falls.append({"p": clamp_floor(player_pos() + Vector2(randf_range(110.0, 220.0), 0).rotated(randf() * TAU)), "t": FALL_WARN})
+		Sfx.play("hourglass_sandfall")
+	for f in _falls:
+		f.t = float(f.t) - delta
+		if float(f.t) <= 0.0:
+			_burst(f.p, Game.SAPPHIRE_CORE, 10)
+			if player_pos().distance_to(f.p) < FALL_R:
+				hurt_player(1, f.p)
+	_falls = _falls.filter(func(f): return float(f.t) > 0.0)
+
+	_pit_cd -= delta
+	if _pit_cd <= 0.0:
+		_pit_cd = PIT_EVERY
+		_pits.append({"p": player_pos(), "t": PIT_LIFE + PIT_WARN})
+		Sfx.play("hourglass_quicksand")
+	for pit in _pits:
+		pit.t = float(pit.t) - delta
+		if float(pit.t) <= PIT_LIFE and player_pos().distance_to(pit.p) < PIT_CORE and _hit_cd <= 0.0:
+			hurt_player(1, pit.p)
+			_hit_cd = 1.0
+	_pits = _pits.filter(func(pit): return float(pit.t) > 0.0)
+
+	for e in _sand_echo:
+		e.t = float(e.t) - delta
+		if float(e.t) <= 0.0:
+			_strike_from(e.from, e.aim, e.reach, e.w)
+			for from in e.from:
+				_burst((from as Vector2) + (e.aim as Vector2) * float(e.reach) * 0.6, Game.SAPPHIRE_CORE, 6)
+	_sand_echo = _sand_echo.filter(func(e): return float(e.t) > 0.0)
 
 
 func _blade_tip() -> Vector2:
@@ -740,7 +845,13 @@ func _draw() -> void:
 			for k in _keys:
 				var at := L(k.p) + Vector2(0, -70)
 				var col := Color(c, 0.6) if k.mode == "out" else Game.PALE_JADE
-				var dir := (k.v as Vector2).normalized() if k.mode == "fly" or k.mode == "out" else Vector2.DOWN.rotated(_t * 2.0)
+				var dir := (k.v as Vector2).normalized() if k.mode in ["fly", "out", "aim"] else Vector2.DOWN.rotated(_t * 2.0)
+				if k.mode == "aim":
+					# the warning: its flight line, filling in as it gets ready
+					var f := 1.0 - float(k.t) / KEY_WARN
+					draw_line(at, at + dir * 900.0, Color(Game.PALE_JADE, 0.25 + 0.35 * f), 3.0)
+					draw_line(at, at + dir * 900.0 * f, Game.PALE_JADE, 5.0)
+					draw_circle(at, 14 + 4 * sin(_t * 30.0), Color(Game.PALE_JADE, 0.5))
 				draw_circle(at, 9, col)
 				draw_circle(at, 3.5, Game.DEEP_MOSS)
 				draw_line(at + dir * 7, at + dir * 30, col, 5.0)
@@ -775,6 +886,28 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([o + Vector2(-22 * top, -36 * top), o + Vector2(22 * top, -36 * top), o]), Color(c, 0.85))
 			if _neck_t > 0.0:
 				draw_arc(o, 12, 0, TAU, 16, Game.PALE_JADE, 3.0)
+			# falls: a ring that fills as the sand comes down
+			for f in _falls:
+				var at := L(f.p)
+				var k := 1.0 - float(f.t) / FALL_WARN
+				draw_polyline(Transform2D(0.0, at) * Game.ellipse(FALL_R, FALL_R * 0.5, 24), Game.PALE_JADE, 2.0)
+				draw_colored_polygon(Transform2D(0.0, at) * Game.ellipse(FALL_R * k, FALL_R * 0.5 * k, 20), Color(Game.PALE_JADE, 0.35))
+			# sinkholes: a warning ring, then a turning spiral
+			for pit in _pits:
+				var at := L(pit.p)
+				if float(pit.t) > PIT_LIFE:
+					draw_polyline(Transform2D(0.0, at) * Game.ellipse(PIT_R, PIT_R * 0.5, 24), Color(Game.PALE_JADE, 0.6), 2.0)
+				else:
+					draw_colored_polygon(Transform2D(0.0, at) * Game.ellipse(PIT_R, PIT_R * 0.5, 24), Color(c, 0.3))
+					for k in 3:
+						var r := PIT_R * (0.3 + 0.25 * k)
+						draw_arc(at, r, _t * 3.0 + k, _t * 3.0 + k + PI, 12, Color(c, 0.7), 2.0)
+					draw_circle(at, PIT_CORE * 0.6, Game.DEEP_MOSS)
+			# a strike's echo: its line, in sand, about to land again
+			for e in _sand_echo:
+				for from in e.from:
+					var a := L(from)
+					draw_line(a, a + (e.aim as Vector2) * float(e.reach), Color(Game.PALE_JADE, 0.3 + 0.4 * (1.0 - float(e.t) / ECHO_LAG)), float(e.w))
 
 
 ## The tell: only the real Mirror has a diamond on its face. Cracks from
