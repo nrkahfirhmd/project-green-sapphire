@@ -9,8 +9,9 @@ extends "res://scripts/bosses/boss_base.gd"
 ## Flip by precision: a thrust dead through the neck while it glows (during a
 ##   Pour, and for 1 s after any attack) flips it: the bulb refills, floor is
 ##   won back, and it's stunned for FLIP_STUN.
-## Cracking the glass: a light thrust off-centre cracks the bulb on that side.
-##   Three cracks spill it and stun it for SPILL_STUN.
+## Cracking the glass: a light thrust off-centre cracks the bulb on that side,
+##   but only between its attacks. Three cracks spill it and stun it for
+##   SPILL_STUN; the glass then holds for CRACK_LOCK before it cracks again.
 ##
 ## Attacks
 ##   Pour: the neck glows while sand pours, the clock drains fast and the
@@ -35,14 +36,15 @@ const MOVE := 50.0
 const BODY_R := 55.0             # thrust within this of the middle hits the glass
 const NECK_R := 20.0             # ...and within this, the neck
 const NECK_AFTER := 1.0          # the neck stays lit this long after an attack
-const CLOCK := [20.0, 14.0]      # seconds for the top bulb to run dry, by phase
+const CLOCK := [16.0, 12.0]      # seconds for the top bulb to run dry, by phase
 const POUR_DRAIN := 4.0          # how much faster it runs while Pouring
 const POUR := 0.16               # floor lost per pour
 const MIN_FLOOR := 0.5
 const FLIP_GAIN := 0.3
 const FLIP_STUN := 1.0
 const CRACKS_TO_SPILL := 3
-const SPILL_STUN := 2.0
+const SPILL_STUN := 1.2
+const CRACK_LOCK := 5.0          # after a spill the glass holds this long
 const TIMESUP_R := 480.0
 const TIMESUP_WINDUP := 1.2
 const FALL_R := 62.0
@@ -86,6 +88,8 @@ var _flip_to := 0.0
 var _floor_goal := 1.0
 var _neck_t := 0.0               # neck lit while this runs (after attacks)
 var _contact := 0.0
+var _crack_lock := 0.0
+var _chain := ""                 # phase 2: an attack that follows straight on
 var _trail: Array = []           # {p, t}
 var _pits: Array = []            # {p, t}
 var _travel := 0.0
@@ -98,8 +102,8 @@ var _ghosts: Array = []          # live echoes being drawn/replayed: {kind, age,
 
 
 func _ready() -> void:
-	max_hp = 40
-	phase_hp = [20]
+	max_hp = 50
+	phase_hp = [25]
 	super()
 
 
@@ -120,6 +124,9 @@ func on_thrust(a: Vector2, b: Vector2, width: float) -> void:
 	if off <= NECK_R and neck_open():
 		_flip()
 	elif width < 50.0 and off > NECK_R:
+		if _crack_lock > 0.0 or not (state == S.IDLE or state == S.RECOVER):
+			_burst(q, Game.SAPPHIRE_CORE, 3)     # glances off the hardened glass
+			return
 		# which side of the thrust line the hourglass is on picks the bulb
 		var side := 0 if (b - a).cross(global_position - a) > 0.0 else 1
 		cracks[side] += 1
@@ -129,6 +136,7 @@ func on_thrust(a: Vector2, b: Vector2, width: float) -> void:
 			cracks[side] = 0
 			sfx("spill")
 			_stun(SPILL_STUN)
+			_crack_lock = CRACK_LOCK
 			_burst(global_position, Game.SAPPHIRE_CORE, 18)
 
 
@@ -199,6 +207,7 @@ func _think(delta: float) -> void:
 		main.floor_scale = move_toward(main.floor_scale, _floor_goal, delta * 0.12)
 	_contact = maxf(0.0, _contact - delta)
 	_neck_t = maxf(0.0, _neck_t - delta)
+	_crack_lock = maxf(0.0, _crack_lock - delta)
 	_tick_ground(delta)
 	_history.append({"t": _t, "p": global_position, "hp": hp})
 	while not _history.is_empty() and _t - float(_history[0].t) > REWIND_BACK + 0.5:
@@ -241,13 +250,26 @@ func _think(delta: float) -> void:
 			_timer -= delta
 			if _timer <= 0.0:
 				state = S.IDLE
-				_wait = spd(randf_range(0.9, 1.5))
+				_wait = randf_range(0.4, 0.8) if phase >= 2 else randf_range(0.8, 1.3)
+				if _chain != "" and state == S.IDLE:
+					var k := _chain
+					_chain = ""
+					_begin(k)
 	move_and_slide()
 	var c := clamp_floor(global_position)
 	if c != global_position:
 		if state == S.ATTACK and kind == "slide":
 			_aim = _aim.bounce((global_position - c).normalized())
 		global_position = c
+
+
+func _cancel() -> void:
+	state = S.IDLE
+	kind = ""
+	_chain = ""
+	_wait = 0.5
+	_spots.clear()
+	_echoes.clear()
 
 
 func _pick() -> String:
@@ -349,6 +371,10 @@ func _attack(delta: float) -> void:
 		_neck_t = NECK_AFTER
 		if kind == "slide":
 			velocity = -_aim * 160.0
+		if phase >= 2 and kind == "sandfall":
+			# the sand lands and it comes sliding through it
+			_chain = "slide"
+			_timer = 0.25
 
 
 ## In phase 2, a sand ghost replays this attack ECHO_DELAY s later.

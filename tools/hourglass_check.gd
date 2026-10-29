@@ -20,7 +20,7 @@ func _ready() -> void:
 	b.player = p
 	var c: Vector2 = b.global_position
 
-	assert(b.max_hp == 40 and b.phases() == [20], "health / phases wrong")
+	assert(b.max_hp == 50 and b.phases() == [25], "health / phases wrong")
 
 	# a dead-centre thrust while the neck is dark does nothing special
 	b.sand = 0.4
@@ -40,6 +40,16 @@ func _ready() -> void:
 	assert(b.cracks[0] + b.cracks[1] == 2 and b.state == b.S.IDLE, "two light thrusts should leave two cracks")
 	b.on_thrust(c + Vector2(-150, -40), c + Vector2(10, -40), 34.0)
 	assert(b.state == b.S.STUN and b.cracks[0] + b.cracks[1] == 0, "third crack didn't spill the bulb")
+	# the stunlock: once spilled, the glass holds for a while
+	b.state = b.S.IDLE
+	for i in 3:
+		b.on_thrust(c + Vector2(-150, -40), c + Vector2(10, -40), 34.0)
+	assert(b.state == b.S.IDLE and b.cracks[0] + b.cracks[1] == 0, "cracks built up again straight after a spill")
+	b._crack_lock = 0.0
+	# ...and it can't be cracked mid-attack
+	b.state = b.S.ATTACK
+	b.on_thrust(c + Vector2(-150, -40), c + Vector2(10, -40), 34.0)
+	assert(b.cracks[0] + b.cracks[1] == 0, "cracked during an attack")
 	b.state = b.S.IDLE
 	b.on_thrust(c + Vector2(-150, -40), c + Vector2(10, -40), 70.0)
 	assert(b.cracks[0] + b.cracks[1] == 0, "a heavy thrust shouldn't crack")
