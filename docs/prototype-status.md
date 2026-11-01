@@ -126,10 +126,14 @@ Danger reads through brightness + motion + pulse speed, not a warning hue.
 The boss eye escalates `DEEP_MOSS → SAPPHIRE_CORE → PALE_JADE` across an
 attack windup — the palette itself is the telegraph timer.
 
-**Known deviations:** the boss hit-flash uses `Color.WHITE` for ~0.12s per hit
-(`boss.gd`, `_draw`). The arena floor is Deep Moss mixed 13% toward Sapphire
+Boss bodies rest in Sapphire Core and bloom to Pale Jade only over the last
+stretch of a windup and on a hit (`boss_base.gd`, `body_color`), so Jade
+stays a "look now" signal. The Mirror keeps a Jade body on purpose: it is the
+player's twin and must not share the player's colour.
+
+**Known deviations:** the arena floor is Deep Moss mixed 13% toward Sapphire
 Core, so the ground shadows have something to darken — a blend of two locked
-colours rather than a fourth hue. Both kept deliberately.
+colours rather than a fourth hue. Kept deliberately.
 
 ## What works
 

@@ -151,9 +151,13 @@ func eye_color(t := eye_t) -> Color:
 	return Game.SAPPHIRE_CORE.lerp(Game.PALE_JADE, (t - 0.5) * 2.0)
 
 
-## Same hit flash as the Prism (a known palette deviation, kept for parity).
+## Sapphire Core at rest, so Pale Jade stays the "look now" signal: the body
+## only blooms to Jade over the last stretch of a windup, holds it through the
+## attack, and flashes full Jade when hit.
 func body_color() -> Color:
-	return Color.WHITE if _flash > 0.0 else Game.PALE_JADE
+	if _flash > 0.0:
+		return Game.PALE_JADE
+	return Game.SAPPHIRE_CORE.lerp(Game.PALE_JADE, clampf((eye_t - 0.6) / 0.4, 0.0, 1.0))
 
 
 ## Telegraph fill: Pale Jade, brighter as the attack nears.
