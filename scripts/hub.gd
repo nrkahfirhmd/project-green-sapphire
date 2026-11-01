@@ -498,6 +498,8 @@ func _draw_cell(id: int) -> void:
 	draw_rect(r, Color(c, 0.07))
 	if id == 5:
 		return
+	if not Game.crystals.has(id):
+		P.emblem(self, id, Vector2(r.get_center().x, r.end.y - 52.0), Color(c, 0.85))
 	var open := _door_open(id)
 	var gap := Vector2(r.get_center().x - r.size.x * 0.2, r.get_center().x + r.size.x * 0.2)
 	var x := r.position.x + 9.0

@@ -99,3 +99,31 @@ static func web(ci: CanvasItem, corner: Vector2, r: float, dir: Vector2, a := 0.
 		for s in spokes:
 			ring.append(corner + s * r * k / 3.6)
 		ci.draw_polyline(ring, Color(C, a * 0.85), 1.5)
+
+
+## The silhouette of the boss still held in a cell, standing behind its bars
+## over the eye that watches from it, so each door says who waits inside.
+## The jail draws it in each cell; the title screen too.
+static func emblem(ci: CanvasItem, id: int, p: Vector2, col: Color) -> void:
+	match id:
+		1:    # Turnkey: a key standing on its bit
+			ci.draw_arc(p + Vector2(0, -34), 13.0, 0, TAU, 20, col, 6.0)
+			ci.draw_line(p + Vector2(0, -21), p + Vector2(0, 22), col, 6.0)
+			ci.draw_rect(Rect2(p + Vector2(0, 8), Vector2(14, 6)), col)
+			ci.draw_rect(Rect2(p + Vector2(0, 17), Vector2(10, 6)), col)
+		2:    # Pendulum: a rod from the lintel and its diamond bob
+			ci.draw_line(p + Vector2(0, -62), p + Vector2(10, 0), col, 4.0)
+			ci.draw_colored_polygon(_diamond(p + Vector2(10, 4), 18.0, 22.0), col)
+		3:    # Prism: the hanging point of the crystal, arms out
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-26, -40), p + Vector2(26, -40), p + Vector2(0, 26)]), col)
+			ci.draw_line(p + Vector2(-24, -38), p + Vector2(-48, -18), col, 6.0)
+			ci.draw_line(p + Vector2(24, -38), p + Vector2(48, -18), col, 6.0)
+		4:    # Hourglass: two bulbs and a frame
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-20, -40), p + Vector2(20, -40), p + Vector2(0, -8)]), col)
+			ci.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -8), p + Vector2(20, 24), p + Vector2(-20, 24)]), col)
+			ci.draw_line(p + Vector2(-26, -44), p + Vector2(26, -44), col, 5.0)
+			ci.draw_line(p + Vector2(-26, 28), p + Vector2(26, 28), col, 5.0)
+
+
+static func _diamond(c: Vector2, rx: float, ry: float) -> PackedVector2Array:
+	return PackedVector2Array([c + Vector2(0, -ry), c + Vector2(rx, 0), c + Vector2(0, ry), c + Vector2(-rx, 0)])
