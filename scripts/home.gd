@@ -9,6 +9,7 @@ const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
 const Settings := preload("res://scripts/ui/settings_panel.gd")
 const JAIL := "res://scenes/hub.tscn"
+const Backdrop := preload("res://scripts/title_backdrop.gd")
 
 var _menu: Control
 var _play: BaseButton
@@ -20,6 +21,17 @@ var _t := 0.0
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	Sfx.ambience("home")
+
+	# the jail at night, through the same ASCII pass as the game; the menu
+	# goes on top of the pass, so it stays crisp
+	add_child(Backdrop.new())
+	var ascii := ColorRect.new()
+	ascii.name = "Ascii"
+	ascii.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ascii.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ascii.material = ShaderMaterial.new()
+	ascii.material.shader = preload("res://shaders/ascii.gdshader")
+	add_child(ascii)
 
 	var col := W.vbox(28)
 	# caption flanked by two lines
@@ -107,6 +119,3 @@ func _open_settings(on: bool) -> void:
 func _line(c: Control, s: Vector2) -> void:
 	c.draw_rect(Rect2(0, s.y * 0.5 - 1.0, s.x, 2.0), Color(UI.CORE, 0.75))
 
-
-func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), UI.MOSS)

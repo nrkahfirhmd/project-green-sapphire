@@ -1,8 +1,8 @@
 extends Node
 ## Dev-only: saves a screenshot of each fight scenery and the jail, with and
-## without the ASCII pass, to user://shots/ (or the folder given by --out=).
+## without the ASCII pass (and the title screen with "home"), to user://shots/ (or the folder given by --out=).
 ##
-##   Godot --path . --resolution 1950x900 tools/shot.tscn -- [1 2 3 4 5 hub] [--out=DIR]
+##   Godot --path . --resolution 1950x900 tools/shot.tscn -- [1 2 3 4 5 hub home] [--out=DIR]
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -17,8 +17,8 @@ func _ready() -> void:
 		which = ["1", "2", "3", "4", "5", "hub"]
 	DirAccess.make_dir_recursive_absolute(out)
 	for w in which:
-		var scene := "res://scenes/hub.tscn" if w == "hub" else "res://scenes/main.tscn"
-		Game.current_boss = 0 if w == "hub" else int(w)
+		var scene := "res://scenes/%s.tscn" % w if w in ["hub", "home"] else "res://scenes/main.tscn"
+		Game.current_boss = int(w) if w.is_valid_int() else 0
 		var node: Node = load(scene).instantiate()
 		add_child(node)
 		await get_tree().create_timer(2.5).timeout
