@@ -1,5 +1,5 @@
 extends CharacterBody2D
-## The Swordsman, armed with a rapier. Move (8-dir), dodge roll (i-frames +
+## The Swordsman, armed with a rapier. Move (8-dir), dodge dash (i-frames +
 ## afterimage trail), and two thrusts on one shared system: light is a quick
 ## jab, heavy a slow lunge that reaches further and covers a wider strip.
 ##
@@ -113,7 +113,9 @@ var _ghosts: Array = []      # [{pos:Vector2, f:float, age:float}]
 var _ghost_acc := 0.0
 var _idle_t := 0.0           # idle-breathing phase
 var _face_x := 1.0           # horizontal mirror; keeps its last side when facing straight up/down
-var _roll := 0.0             # dodge-roll spin, radians
+var _roll := 0.0             # ricochet spin, radians
+var _dash := 0.0             # 0..1 through a dodge dash
+var _brake := 0.0            # 1 -> 0 just after a dash, as the feet bite
 var ult_charge := 0          # 0..ULT_COST
 var _pull := Vector2.ZERO     # quicksand's pull this frame
 var _rico_cd := 0.0
@@ -162,6 +164,7 @@ func _process(delta: float) -> void:
 		_look = facing
 	var lean_to := clampf(velocity.x / SPEED, -1.0, 1.0) * 0.1 if state == State.FREE else 0.0
 	_lean = lerpf(_lean, lean_to, 1.0 - exp(-delta * 10.0))
+	_brake = maxf(0.0, _brake - delta / 0.18)
 	_hurt_t += delta
 	# blink out every other 0.05 s while the hurt i-frames last
 	self_modulate.a = 0.35 if _hurt_t < HURT_IFRAMES and fmod(_hurt_t, 0.1) < 0.05 else 1.0
@@ -280,10 +283,11 @@ func _start_dodge() -> void:
 	velocity = facing * DODGE_SPEED
 	_walk_amp = 0.0
 	_ghost_acc = 0.0
-	_roll = 0.0
-	_pop_visual(Vector2(1.35, 0.7))   # stretch along travel
+	_dash = 0.0
+	_brake = 0.0
+	_pop_visual(Vector2(1.1, 0.86))   # a crouch on the launch
 	_feel("dodge")
-	_burst(global_position, Game.SAPPHIRE_CORE, 8)
+	_burst(global_position - facing * 16.0, Game.SAPPHIRE_CORE, 8)   # kicked off the floor
 
 
 func _grant(t: float) -> void:
@@ -304,17 +308,29 @@ func _perfect_dodge(from_pos: Vector2) -> void:
 
 func _do_dodge(delta: float) -> void:
 	_atk_timer -= delta
-	_roll = (1.0 - clampf(_atk_timer / DODGE_TIME, 0.0, 1.0)) * TAU
+	_dash = 1.0 - clampf(_atk_timer / DODGE_TIME, 0.0, 1.0)
 	velocity = velocity.move_toward(facing * SPEED, 1400.0 * delta)
 	_ghost_acc -= delta
 	if _ghost_acc <= 0.0:
-		_ghosts.append({"pos": global_position, "f": facing.angle(), "age": 0.0})
+		_ghosts.append({"pos": global_position, "f": facing.angle(), "age": 0.0, "lean": _dash_lean()})
 		_ghost_acc = GHOST_EVERY
 	if _atk_timer <= 0.0:
 		state = State.FREE
-		_roll = 0.0
-		_pop_visual(Vector2(0.85, 1.15))
-		_burst(global_position, Color(Game.SAPPHIRE_CORE, 0.5), 5, 90.0)   # landing dust
+		_brake = 1.0
+		_pop_visual(Vector2(1.12, 0.9))
+		_burst(global_position + facing * 12.0, Color(Game.SAPPHIRE_CORE, 0.5), 6, 120.0)   # skid dust
+
+
+## How far the body pitches into a dash: hard over at the launch, easing as it
+## slows, then rocked back past upright for a beat as the feet bite. A dash
+## up or down the screen can't pitch along its travel, so it tips a little
+## to the side it faces instead and never reads as standing still.
+func _dash_lean() -> float:
+	var sx := _project(facing).normalized().x
+	var tilt := sx if absf(sx) > 0.25 else _face_x * 0.4
+	if state == State.DODGE:
+		return tilt * lerpf(0.6, 0.32, _dash)
+	return -tilt * 0.2 * sin(_brake * PI)
 
 
 func _start_attack(name: String) -> void:
@@ -786,8 +802,10 @@ func _draw() -> void:
 		var a: float = (1.0 - float(g.age) / GHOST_LIFE) * 0.32
 		var off: Vector2 = g.pos - global_position
 		var gc := Color(Game.SAPPHIRE_CORE, a)
-		_capsule(off + Vector2(0, -32 * RIG), off + Vector2(0, -14 * RIG), 8 * RIG, gc)
-		draw_circle(off + Vector2(0, -39 * RIG), 6.5 * RIG, gc)
+		draw_set_transform(off, g.get("lean", 0.0))
+		_capsule(Vector2(0, -32 * RIG), Vector2(0, -14 * RIG), 8 * RIG, gc)
+		draw_circle(Vector2(0, -39 * RIG), 6.5 * RIG, gc)
+		draw_set_transform(Vector2.ZERO)
 
 	# slash lines left by blinks and the ultimate, on the floor at hip height
 	for st in _streaks:
@@ -816,7 +834,15 @@ func _draw() -> void:
 		ring.append(ring[0])
 		draw_polyline(ring, Color(Game.PALE_JADE, 0.45 + 0.4 * k), 3.0)
 
-	# body transform: breathing, walk bob, dodge tumble, hurt jitter
+	# a dash drags speed lines behind it at head, chest and hip height
+	if state == State.DODGE:
+		var back := -_project(facing).normalized()
+		for k in 3:
+			var from := Vector2(0, (-38.0 + k * 11.0) * RIG) + back * (9.0 + 3.0 * k) * RIG
+			var length := (30.0 - 8.0 * absf(k - 1)) * RIG * (1.0 - 0.6 * _dash)
+			draw_line(from, from + back * length, Color(Game.SAPPHIRE_CORE, 0.6 * (1.0 - _dash)), 3.0)
+
+	# body transform: breathing, walk bob, dash pitch, ricochet tumble, hurt jitter
 	var sq := _visual
 	var breathe := 1.0 + sin(_idle_t * 2.4) * 0.022 * (1.0 - _walk_amp)
 	sq *= Vector2(2.0 - breathe, breathe)
@@ -833,18 +859,31 @@ func _draw() -> void:
 		spin = -_face_x * PI * 0.5 * (1.0 - pow(1.0 - k, 3.0) + 0.06 * sin(k * PI))
 		offset = Vector2.ZERO
 		sq = Vector2.ONE
-	elif state == State.DODGE or state == State.RICOCHET:
+	elif state == State.DODGE:
+		# pitched into the travel about the feet, crouched, stretched along it
+		spin = _dash_lean()
+		sq *= Vector2(1.0 + 0.14 * absf(_project(facing).normalized().x), 0.86 + 0.08 * _dash)
+	elif state == State.RICOCHET:
 		# tumble about the waist; rotating about the feet would read as a topple
 		spin = _roll * _face_x
 		var pivot := Vector2(0, -22 * RIG)
 		offset += pivot - pivot.rotated(spin)
 		sq *= Vector2(1.0, 0.92)
+	if _brake > 0.0 and state == State.FREE:
+		spin += _dash_lean()
 	draw_set_transform(offset, spin, sq)
 
-	# legs step along the travel direction
+	# legs step along the travel direction; in a dash they hold a lunge, the
+	# lead foot reaching ahead and the back one trailing off the floor
 	var stride := sin(_walk) * 6.0 * RIG * _walk_amp
-	_capsule_o(Vector2(-4.5 * RIG, -15 * RIG), Vector2(-4.5 * RIG + stride, 0.0), 3.5 * RIG, col)
-	_capsule_o(Vector2(4.5 * RIG, -15 * RIG), Vector2(4.5 * RIG - stride, 0.0), 3.5 * RIG, col)
+	var foot_a := Vector2(-4.5 * RIG + stride, 0.0)
+	var foot_b := Vector2(4.5 * RIG - stride, 0.0)
+	if state == State.DODGE:
+		var lunge := _project(facing).normalized() * Vector2(1.0, 0.6) * RIG
+		foot_a = Vector2(-4.5 * RIG, 0.0) + lunge * 13.0
+		foot_b = Vector2(4.5 * RIG, -6.0 * RIG) - lunge * 14.0
+	_capsule_o(Vector2(-4.5 * RIG, -15 * RIG), foot_a, 3.5 * RIG, col)
+	_capsule_o(Vector2(4.5 * RIG, -15 * RIG), foot_b, 3.5 * RIG, col)
 
 	# walking away from the camera puts the sword arm behind the body
 	var behind := _look.y < -0.3
@@ -878,6 +917,11 @@ func _draw_sword(col: Color) -> void:
 	var ext := _extension()
 	var off := 0.0 if state != State.FREE else (0.35 + sin(_idle_t * 2.2) * 0.05) * _face_x
 	var gdir := Vector2(1, 0).rotated(_look.angle() + off)
+	if state == State.DODGE:
+		# blade held low and level, point leading the dash; the body's pitch is
+		# taken off so it stays level whatever the lean
+		gdir = _look.rotated(0.35 * _face_x - _dash_lean())
+		ext = -0.2
 
 	var shoulder := Vector2(8 * RIG * _face_x, -30 * RIG)
 	var hand := shoulder + _project(gdir * (10.0 + 9.0 * ext) * RIG)

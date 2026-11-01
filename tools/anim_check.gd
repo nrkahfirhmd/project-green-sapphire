@@ -44,12 +44,12 @@ func _ready() -> void:
 			p._atk_timer = 0.05
 			await _settle()
 
-	# dodge mid-tumble, with afterimages, and a damage flash
+	# dodge mid-dash, with afterimages, and a damage flash
 	p.state = 1
-	p._roll = 2.2
+	p._dash = 0.4
 	p._flash = 0.12
-	p._ghosts = [{"pos": Vector2(740, 700), "f": 0.0, "age": 0.10},
-		{"pos": Vector2(770, 700), "f": 0.0, "age": 0.05}]
+	p._ghosts = [{"pos": Vector2(740, 700), "f": 0.0, "age": 0.10, "lean": 0.5},
+		{"pos": Vector2(770, 700), "f": 0.0, "age": 0.05, "lean": 0.4}]
 	await _settle()
 	p.state = 0
 	p._ghosts = []
