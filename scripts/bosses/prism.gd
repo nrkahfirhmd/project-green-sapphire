@@ -403,7 +403,7 @@ func _draw() -> void:
 	for s in _spikes:
 		var c := L(s.p)
 		var a := clampf(float(s.t) / 0.5, 0.0, 1.0) * clampf(float(s.age) / 0.15, 0.0, 1.0)
-		draw_colored_polygon(Transform2D(0.0, c) * Game.ellipse(24, 7), Color(Game.DEEP_MOSS, 0.5 * a))
+		Game.shadow(self, c, 26, 0.0, a)
 		for k in 3:
 			var x := (k - 1) * 11.0
 			var h := 48.0 - absf(k - 1) * 16.0
@@ -441,7 +441,8 @@ func _draw() -> void:
 		off += Vector2(randf_range(-jf, jf), randf_range(-jf, jf))
 
 	var shrink := (1.0 - 0.07 * sin(_t * rate)) * s_
-	draw_colored_polygon(Game.ellipse(58.0 * shrink, 15.0 * shrink), Color(Game.DEEP_MOSS, 0.5))
+	# a little in front of the floor point, so the hanging tip stays clear of it
+	Game.shadow(self, Vector2(0, 8), 66.0 * shrink, -LIFT.y)
 	draw_set_transform(off + LIFT + kick(), rot, sq)
 	var body := body_color()
 

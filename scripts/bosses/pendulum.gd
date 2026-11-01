@@ -469,8 +469,7 @@ func _draw() -> void:
 	var body := L(floor_pt) + Vector2(0, -lift + sin(_t * 1.3) * 4.0 * (1.0 - _drop))
 	if not clocked:
 		draw_line(body + Vector2(0, -40), Vector2(body.x, rail_y), Color(Game.SAPPHIRE_CORE, 0.6), 4.0)
-	if _drop > 0.05 or clocked:
-		draw_colored_polygon(Transform2D(0.0, L(floor_pt)) * Game.ellipse(44, 13), Color(Game.DEEP_MOSS, 0.5))
+	Game.shadow(self, L(floor_pt), 50, lift)
 
 	# arms: one blade, a mirrored second in phase-2 swings, or two clock hands
 	var attacking := state == S.ATTACK
@@ -517,7 +516,7 @@ func _draw() -> void:
 func _draw_arm(body: Vector2, at: Vector2, a: float, s: float, attacking: bool) -> void:
 	var resting := state == S.REST
 	var blade := at + Vector2(0, -BLADE_LIFT * (0.3 if resting else 1.0))
-	draw_colored_polygon(Transform2D(0.0, at) * Game.ellipse(30, 8), Color(Game.DEEP_MOSS, 0.5))
+	Game.shadow(self, at + Vector2(0, 16), 48.0 * s, BLADE_LIFT * (0.3 if resting else 1.0))
 	draw_line(body, blade, body_color(), 6.0)
 	var along := Vector2(1, 0).rotated(a)
 	var w := 62.0 * s

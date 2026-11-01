@@ -154,6 +154,7 @@ func _spawn(spec: Dictionary) -> void:
 	env.name = "Environment"
 	env.set_script(load(spec["env"]))
 	add_child(env)
+	$Ascii/Screen.material.set_shader_parameter("black_void", spec["boss"].ends_with("mirror.gd"))
 
 
 ## The floor's outline inside arena_rect. "gem" is the Prism's ten irregular
@@ -358,10 +359,7 @@ func _draw() -> void:
 		var w := h * (0.55 + 0.45 * absf(cos(ms / 600.0)))
 		var bob := sin(ms / 400.0) * 4.0 if _drop_t >= 1.0 else 0.0
 		var c := ground + Vector2(0, -38 - lift + bob)
-		var sh := clampf(1.0 - lift / 200.0, 0.3, 1.0)
-		draw_set_transform(_crystal)
-		draw_colored_polygon(Game.ellipse(16 * sh, 5 * sh), Color(Game.DEEP_MOSS, 0.6))
-		draw_set_transform(Vector2.ZERO)
+		Game.shadow(self, _crystal, 18, 38 + lift)
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -h), c + Vector2(w, 0), c + Vector2(0, h), c + Vector2(-w, 0)]), Game.PALE_JADE)
 		# a glint crossing its face
 		var g := fmod(ms / 1400.0, 1.0)

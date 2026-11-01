@@ -288,7 +288,7 @@ func _draw_piece(g: Dictionary) -> void:
 		"heap":
 			var p: Vector2 = g.p
 			var r: float = g.r
-			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 2)) * Game.ellipse(r * 1.1, r * 0.22), Color(Game.DEEP_MOSS, 0.6))
+			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 2)) * Game.ellipse(r * 1.1, r * 0.22), Color(Game.SHADOW, 0.6))
 			var dome := PackedVector2Array()
 			for k in 13:
 				var a := PI + PI * k / 12.0
@@ -300,7 +300,7 @@ func _draw_piece(g: Dictionary) -> void:
 		"chest":
 			var p: Vector2 = g.p
 			var w: float = g.w
-			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 2)) * Game.ellipse(w * 0.62, w * 0.12), Color(Game.DEEP_MOSS, 0.6))
+			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 2)) * Game.ellipse(w * 0.62, w * 0.12), Color(Game.SHADOW, 0.6))
 			var body := Rect2(p.x - w * 0.5, p.y - w * 0.55, w, w * 0.55)
 			P.gradient(self, PackedVector2Array([body.position, Vector2(body.end.x, body.position.y), body.end, Vector2(body.position.x, body.end.y)]),
 				body.position, body.end, 0.42, 0.26)
@@ -330,7 +330,7 @@ func _draw_piece(g: Dictionary) -> void:
 		"urn":
 			var p: Vector2 = g.p
 			var r: float = g.r
-			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 1)) * Game.ellipse(r * 1.1, r * 0.25), Color(Game.DEEP_MOSS, 0.6))
+			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 1)) * Game.ellipse(r * 1.1, r * 0.25), Color(Game.SHADOW, 0.6))
 			draw_circle(p - Vector2(0, r), r, Color(c, 0.32))
 			draw_arc(p - Vector2(0, r), r - 3, PI * 0.7, PI * 1.25, 10, Color(c, 0.55), 3.0)
 			draw_rect(Rect2(p.x - r * 0.4, p.y - r * 2.5, r * 0.8, r * 0.7), Color(c, 0.4))

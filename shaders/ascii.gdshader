@@ -13,11 +13,15 @@ uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
 // can go and stay crisp; 2 doubles them. It is snapped to whole screen pixels,
 // which is what keeps a glyph sharp at this size.
 uniform float pixel = 1.0;
+// The Mirror's arena: the void past the floor goes black too, not just shadows.
+uniform bool black_void = false;
+
 const vec2 CELL = vec2(4.0, 5.0);   // 3x4 glyph + 1 column and 1 row of gap
 
 const vec3 MOSS = vec3(0.231, 0.286, 0.224);
 const vec3 CORE = vec3(0.412, 0.627, 0.384);
 const vec3 JADE = vec3(0.733, 0.886, 0.714);
+const vec3 SHADE = vec3(0.141, 0.184, 0.137);   // #243023, under ground shadows
 
 // one 3-bit row per argument, top row first, leftmost column = high bit
 int pack(int a, int b, int c, int d) {
@@ -65,10 +69,12 @@ void fragment() {
 	// the cells they cross.
 	vec2 sum = vec2(0.0);    // x = core amount, y = jade amount
 	vec2 peak = vec2(0.0);
+	float dark = 0.0;        // how far below Deep Moss the cell sits (ground shadows are black)
 	for (int y = 0; y < 3; y++) {
 		for (int x = 0; x < 3; x++) {
 			vec2 uv = (id + (vec2(float(x), float(y)) + 0.5) / 3.0) * cell * SCREEN_PIXEL_SIZE;
 			vec3 c = texture(screen_tex, uv).rgb;
+			dark += 1.0 - clamp(dot(c, vec3(1.0)) / dot(MOSS, vec3(1.0)), 0.0, 1.0);
 			vec2 fc = fit(c, CORE);
 			vec2 fj = fit(c, JADE);
 			vec2 amt = fc.y < fj.y ? vec2(fc.x, 0.0) : vec2(0.0, fj.x);
@@ -107,5 +113,11 @@ void fragment() {
 
 	bool on = gp.x < 3 && gp.y < 4
 		&& ((g >> ((3 - gp.y) * 3 + (2 - gp.x))) & 1) == 1;
-	COLOR = vec4(on ? col : MOSS, 1.0);
+	// Behind the glyphs: Deep Moss, deepening towards SHADE under ground
+	// shadows (drawn darker than Deep Moss). Graded by how much of the cell the
+	// shadow covers and how dark it is, so its rim softens over a cell or two
+	// and a high floater's faint shadow stays light. The Mirror's void is black.
+	vec3 bg = mix(MOSS, SHADE, smoothstep(0.05, 0.6, dark / 9.0));
+	if (black_void && max(peak.x, peak.y) < 0.04 && dark < 0.5) bg = vec3(0.0);
+	COLOR = vec4(on ? col : bg, 1.0);
 }

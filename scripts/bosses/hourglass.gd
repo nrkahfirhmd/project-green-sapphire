@@ -492,7 +492,7 @@ func _draw() -> void:
 			"timesup":
 				draw_circle(Vector2.ZERO, TIMESUP_R * (0.6 + 0.4 * eye_t), warn_color())
 
-	_shadow(60.0 * s, 16.0 * s)
+	Game.shadow(self, Vector2(0, 4), 64.0 * s)
 	# body: two bulbs on frames, turned by _rot about its middle
 	draw_set_transform(Vector2(0, -90) + kick(), _rot, _visual * s)
 	var body := body_color()

@@ -42,6 +42,7 @@ func _save_settings() -> void:
 const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
 const SAPPHIRE_CORE := Color("69A062") # player, muted text, eye mid-charge
 const PALE_JADE := Color("BBE2B6")     # boss body, blade, EVERY telegraph flash
+const SHADOW := Color.BLACK            # ground shadows; the ASCII pass turns them a green deeper than Deep Moss
 
 ## Off-device, the safe area of an iPhone 15/16 Pro in landscape (59 pt sides,
 ## 21 pt bottom), in canvas units: desktop runs and the editor then place the
@@ -66,6 +67,18 @@ func safe_area(viewport_size: Vector2) -> Rect2:
 	var k := viewport_size / win
 	var r := Rect2(Vector2(safe.position) * k, Vector2(safe.size) * k).intersection(full)
 	return r if r.get_area() > 0.0 else full
+
+
+## The one light hangs high over the floor, so every shadow lies straight
+## under its caster: a flat ellipse at floor point `at`. Something `height`
+## above the floor casts a smaller, fainter one, and the gap between the two
+## is what reads as floating. Never thinner than about two glyph rows, or the
+## ASCII pass breaks it into chips.
+func shadow(ci: CanvasItem, at: Vector2, rx: float, height := 0.0, fade := 1.0) -> void:
+	var k := clampf(1.0 - height / 600.0, 0.5, 1.0)
+	var ry := maxf(rx * k * 0.3, 7.0)
+	var e := ellipse(maxf(rx * k, ry * 2.4), ry)
+	ci.draw_colored_polygon(Transform2D(0.0, at) * e, Color(SHADOW, 0.85 * k * k * fade))
 
 
 ## Ellipse polygon centred on the origin. Ground shadows have to be flatter

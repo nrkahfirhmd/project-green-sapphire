@@ -497,7 +497,7 @@ func _draw() -> void:
 		var out := _mode[i] == K.KNOCK
 		var glow := _mode[i] == K.DIAL and _aligned(i)
 		draw_set_transform(p, 0.0, Vector2(s, s))
-		draw_colored_polygon(Game.ellipse(12, 4), Color(Game.DEEP_MOSS, 0.5))
+		Game.shadow(self, Vector2.ZERO, 17, LIFT - bob * 0.6)
 		var dir := Vector2.DOWN.rotated(_spin + i)
 		match _mode[i]:
 			K.FLY, K.BACK:
@@ -514,7 +514,7 @@ func _draw() -> void:
 
 	# core: shadow, diamond, shield ring while it's locked
 	draw_set_transform(kick(), 0.0, _visual * s)
-	_shadow(26, 8)
+	_shadow(34, LIFT + 10 - bob)
 	var c := Vector2(0, -LIFT - 10 + bob)
 	if not _can_be_hit():
 		draw_arc(c, 34, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.7), 3.0)

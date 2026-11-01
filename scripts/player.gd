@@ -803,7 +803,7 @@ func _draw() -> void:
 				draw_circle(a0 + seg.normalized() * d, 3.0, Color(Game.SAPPHIRE_CORE, 0.8))
 				d += 22.0
 
-	draw_colored_polygon(Game.ellipse(13 * RIG, 5 * RIG), Color(Game.DEEP_MOSS, 0.55))
+	Game.shadow(self, Vector2(0, 4), 22 * RIG)
 
 	# ultimate ready: a Jade ring breathing on the floor round the feet
 	if ult_charge >= ULT_COST and state == State.FREE and _dead_t < 0.0:

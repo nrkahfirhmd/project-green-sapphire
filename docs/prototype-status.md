@@ -135,6 +135,11 @@ player's twin and must not share the player's colour.
 Core, so the ground shadows have something to darken — a blend of two locked
 colours rather than a fourth hue. Kept deliberately.
 
+Ground shadows are drawn black (`Game.SHADOW`, laid down by `Game.shadow`) and
+the ASCII pass turns them into a green deeper than Deep Moss (`#243023`), so a
+shadow reads as a pool under its caster without adding a hue. In the Mirror's
+arena the void past the floor goes fully black. Both are deliberate.
+
 ## What works
 
 - Core loop: telegraph → dodge/reposition → punish → manage HP → restart

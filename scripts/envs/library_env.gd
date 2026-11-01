@@ -293,7 +293,7 @@ func _draw_piece(g: Dictionary) -> void:
 	match g.kind:
 		"desk":
 			var p: Vector2 = g.p
-			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 2)) * Game.ellipse(58, 10), Color(Game.DEEP_MOSS, 0.6))
+			draw_colored_polygon(Transform2D(0.0, p + Vector2(0, 2)) * Game.ellipse(58, 10), Color(Game.SHADOW, 0.6))
 			draw_rect(Rect2(p.x - 50, p.y - 44, 100, 12), Color(c, 0.48))
 			draw_line(Vector2(p.x - 50, p.y - 44), Vector2(p.x + 50, p.y - 44), Color(c, 0.62), 2.0)
 			draw_line(Vector2(p.x - 42, p.y - 32), Vector2(p.x - 42, p.y), Color(c, 0.4), 5.0)

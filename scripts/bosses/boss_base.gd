@@ -246,7 +246,6 @@ func _diamond(c: Vector2, rx: float, ry: float) -> PackedVector2Array:
 	return PackedVector2Array([c + Vector2(0, -ry), c + Vector2(rx, 0), c + Vector2(0, ry), c + Vector2(-rx, 0)])
 
 
-## Shadow on the floor under the boss's own point.
-func _shadow(rx: float, ry: float, a := 0.5) -> void:
-	var s := Game.ellipse(rx, ry)
-	draw_colored_polygon(s, Color(Game.DEEP_MOSS, a))
+## Shadow on the floor under the boss's own point, for a body `height` above it.
+func _shadow(rx: float, height := 0.0) -> void:
+	Game.shadow(self, Vector2.ZERO, rx, height)
