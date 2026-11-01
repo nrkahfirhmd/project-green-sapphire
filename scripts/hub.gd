@@ -192,6 +192,7 @@ func _landed(id: int) -> void:
 	Sfx.play("place")
 	spawn_burst(_socket(id), Game.SAPPHIRE_CORE, 18, 260.0)
 	spawn_ring(altar, 260.0, Game.SAPPHIRE_CORE, 0.5)
+	Post.shock(altar, 0.9)
 	if id != 5 and _gate_unlocked():
 		_lamp_pulse = 0.9              # the only Jade moment outside a fight
 		Sfx.play("lamp")

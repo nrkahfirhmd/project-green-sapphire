@@ -30,7 +30,7 @@ shape = SubResource("CircleShape2D_player")
 
 [node name="Ascii" type="CanvasLayer" parent="." unique_id=975609344]
 
-[node name="Screen" type="ColorRect" parent="Ascii" unique_id=1451075560]
+[node name="Screen" type="ColorRect" parent="Ascii" unique_id=1451075560 groups=["ascii"]]
 material = SubResource("ShaderMaterial_ascii")
 anchors_preset = 15
 anchor_right = 1.0

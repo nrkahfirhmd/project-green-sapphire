@@ -27,6 +27,7 @@ func _ready() -> void:
 	add_child(Backdrop.new())
 	var ascii := ColorRect.new()
 	ascii.name = "Ascii"
+	ascii.add_to_group("ascii")
 	ascii.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ascii.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ascii.material = ShaderMaterial.new()

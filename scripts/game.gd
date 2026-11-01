@@ -235,8 +235,11 @@ func go(path: String) -> void:
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(veil)
 	get_tree().root.add_child(layer)
+	# the world thins out glyph by glyph; the veil takes the HUD at the very end
+	Post.dissolve(1.0, 0.34)
 	var out := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	out.tween_property(veil, "color:a", 1.0, 0.18).set_ease(Tween.EASE_IN)
+	out.tween_interval(0.22)
+	out.tween_property(veil, "color:a", 1.0, 0.12).set_ease(Tween.EASE_IN)
 	await out.finished
 	Engine.time_scale = 1.0
 	get_tree().paused = false
@@ -246,8 +249,9 @@ func go(path: String) -> void:
 		get_tree().change_scene_to_file(path)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# lift the veil off an empty screen, then type the new room in
 	var back := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	back.tween_property(veil, "color:a", 0.0, 0.28).set_ease(Tween.EASE_OUT)
-	await back.finished
+	back.tween_property(veil, "color:a", 0.0, 0.12).set_ease(Tween.EASE_OUT)
+	await Post.dissolve(0.0, 0.5)
 	layer.queue_free()
 	_fading = false

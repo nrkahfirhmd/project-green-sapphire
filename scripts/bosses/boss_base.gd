@@ -105,6 +105,7 @@ func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 	_pop_visual(Vector2(1.18, 0.84))
 	_recoil(from_pos, 8.0 + 5.0 * amount)
 	_burst(from_pos.lerp(global_position, 0.7), Game.SAPPHIRE_CORE, 12)
+	Post.scramble(from_pos.lerp(global_position, 0.7), 0.09, 0.7)
 	_on_hit(amount)
 	health_changed.emit(hp, max_hp)
 	var marks := phases()
@@ -113,11 +114,13 @@ func take_hit(amount: int, from_pos: Vector2, pierce := false) -> void:
 		breaking = BREAK_TIME
 		_cancel()
 		_burst(global_position, Game.PALE_JADE, 26)
+		Post.shock(global_position, 0.8)
 		phase_changed.emit(phase)
 		_request_shake(18.0)
 		Game.hit_stop(0.12)
 	if hp <= 0:
 		dead = true
+		Post.shock(global_position, 1.2)
 		died.emit()
 
 

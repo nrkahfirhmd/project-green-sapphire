@@ -637,6 +637,8 @@ func _start_ult() -> void:
 	_ult_base = (global_position - boss.global_position).angle()
 	_feel("ult_start")
 	_ring(boss.global_position, 300.0, Game.PALE_JADE, 0.5)
+	if is_in_group("player"):
+		Post.shock(boss.global_position, 0.6)
 	_request_punch(1.1)
 
 
@@ -691,6 +693,8 @@ func take_hit(amount: int, from_pos: Vector2) -> void:
 	if hp > 0 and is_in_group("player"):
 		get_tree().create_timer(HURT_STOP, true, false, true).timeout.connect(func(): Game.slow_mo(0.5, 0.25))
 	_burst(global_position, Game.PALE_JADE, 14)
+	if is_in_group("player"):
+		Post.scramble(global_position + Vector2(0, -30), 0.16)
 	hit_taken.emit()
 	health_changed.emit(hp, MAX_HP)
 	if hp <= 0:
