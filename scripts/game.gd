@@ -218,8 +218,13 @@ func slow_mo(scale: float, duration: float) -> void:
 
 
 # --- Scene transitions -----------------------------------------------
-## Every scene change fades through Deep Moss: 0.18 s out, the swap, 0.28 s
-## in. A fade already running wins; a second request is dropped.
+## Every scene change is an iris: a circle of Deep Moss closes onto the player
+## (or the middle of the screen when there is none), the scene swaps behind
+## it, and it opens again from the new scene's player. A change already
+## running wins; a second request is dropped.
+const IRIS_CLOSE := 0.45
+const IRIS_OPEN := 0.5
+const IRIS_WIDE := 1.4             # a radius that clears every corner
 var _fading := false
 
 func go(path: String) -> void:
@@ -228,19 +233,20 @@ func go(path: String) -> void:
 	_fading = true
 	Sfx.play("fade", 0.0, 0.0)
 	var layer := CanvasLayer.new()
-	layer.layer = 100                  # over the ASCII pass, so the fade is a clean fill
-	var veil := ColorRect.new()
-	veil.color = Color(DEEP_MOSS, 0.0)
-	veil.mouse_filter = Control.MOUSE_FILTER_STOP
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(veil)
+	layer.layer = 100                  # over the ASCII pass and the HUD
+	var iris := ColorRect.new()
+	iris.mouse_filter = Control.MOUSE_FILTER_STOP
+	iris.set_anchors_preset(Control.PRESET_FULL_RECT)
+	iris.material = ShaderMaterial.new()
+	iris.material.shader = preload("res://shaders/iris.gdshader")
+	iris.material.set_shader_parameter("radius", IRIS_WIDE)
+	iris.material.set_shader_parameter("centre", _focus())
+	layer.add_child(iris)
 	get_tree().root.add_child(layer)
-	# the world thins out glyph by glyph; the veil takes the HUD at the very end
-	Post.dissolve(1.0, 0.34)
-	var out := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	out.tween_interval(0.22)
-	out.tween_property(veil, "color:a", 1.0, 0.12).set_ease(Tween.EASE_IN)
-	await out.finished
+	var close := iris.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	close.tween_method(func(r: float): iris.material.set_shader_parameter("radius", r),
+		IRIS_WIDE, 0.0, IRIS_CLOSE).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	await close.finished
 	Engine.time_scale = 1.0
 	get_tree().paused = false
 	if path == "":
@@ -249,9 +255,22 @@ func go(path: String) -> void:
 		get_tree().change_scene_to_file(path)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	# lift the veil off an empty screen, then type the new room in
-	var back := veil.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	back.tween_property(veil, "color:a", 0.0, 0.12).set_ease(Tween.EASE_OUT)
-	await Post.dissolve(0.0, 0.5)
+	# open again from wherever the new scene's player stands
+	iris.material.set_shader_parameter("centre", _focus())
+	var open := iris.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	open.tween_interval(0.08)
+	open.tween_method(func(r: float): iris.material.set_shader_parameter("radius", r),
+		0.0, IRIS_WIDE, IRIS_OPEN).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	await open.finished
 	layer.queue_free()
 	_fading = false
+
+
+## Where the iris centres, in screen UV: the player, else the middle.
+func _focus() -> Vector2:
+	var p := get_tree().get_first_node_in_group("player") as CanvasItem
+	var vp := get_viewport().get_visible_rect().size
+	if p and p.is_inside_tree() and p.visible:
+		var at := p.get_global_transform_with_canvas().origin + Vector2(0, -50)   # the body, not the feet
+		return Vector2(clampf(at.x / vp.x, 0.0, 1.0), clampf(at.y / vp.y, 0.0, 1.0))
+	return Vector2(0.5, 0.5)
