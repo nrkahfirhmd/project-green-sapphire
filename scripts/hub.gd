@@ -88,6 +88,7 @@ func _ready() -> void:
 		"mouth": Vector2(vp.x * 0.5, hall.end.y - 70.0)}
 
 	Sfx.ambience("jail")
+	Music.play("jail")
 
 	# back from a fight: stand in front of the cell it came from
 	var from := Game.current_boss

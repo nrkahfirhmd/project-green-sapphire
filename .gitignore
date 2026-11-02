@@ -10,3 +10,6 @@
 
 # raw foley sources (CC0, ~110 MB); tools/make_foley.py cuts them into media/sfx
 media/sfx_src/
+
+# the music's raw renders (GarageBand bounces); tools/make_music_loops.py makes media/music
+media/music_src/

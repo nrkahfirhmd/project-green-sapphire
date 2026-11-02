@@ -66,6 +66,7 @@ func _ready() -> void:
 	cell = Game.current_boss if BOSSES.has(Game.current_boss) else DEFAULT_CELL
 	var spec: Dictionary = BOSSES[cell]
 	Sfx.ambience("cell%d" % cell)
+	Music.play("final" if cell == 5 else "boss")
 	_build_arena_poly(spec["floor"])
 	_spawn(spec)
 
@@ -332,6 +333,7 @@ func _finish(win: bool) -> void:
 	run_over.emit(win)
 	Haptics.play("win" if win else "lose")
 	Sfx.play("win" if win else "lose", 0.0, 0.0)
+	Music.stop(1.5)      # the fight's music falls away under the result
 	_pause.enabled = false
 	Game.hit_stop(0.15)
 	var flags := Game.record_win(cell, _elapsed, _hits_taken) if win else {}

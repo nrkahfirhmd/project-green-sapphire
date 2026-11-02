@@ -21,6 +21,7 @@ var _t := 0.0
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	Sfx.ambience("home")
+	Music.play("title")
 
 	# the jail at night, through the same ASCII pass as the game; the menu
 	# goes on top of the pass, so it stays crisp
