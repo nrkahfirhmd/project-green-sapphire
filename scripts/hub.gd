@@ -36,6 +36,7 @@ const MOTES := 40
 const FLY_TIME := 0.5            # a sapphire's flight from the player to the altar
 const GATE_W := 230.0            # gate V spans x 860-1090 on the 1950 canvas
 const HOME := "res://scenes/home.tscn"
+const ENDING := "res://scenes/ending.tscn"
 const UI := preload("res://scripts/ui/ui.gd")
 const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
@@ -608,34 +609,15 @@ func _draw_live() -> void:
 
 
 # --- ending (handoff screen 09) --------------------------------------
+## The fifth sapphire is set: after a beat to watch it land, the ending
+## (scenes/ending.tscn) plays the credits and sends the player home.
 func _show_ending() -> void:
 	if _ending:
 		return
-	_ending = Control.new()
-	_ending.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_ending.mouse_filter = Control.MOUSE_FILTER_STOP
-	_ending.draw.connect(func(): _ending.draw_rect(Rect2(Vector2.ZERO, _ending.size), Color(UI.MOSS, 0.82)))
-	var col := W.vbox(32)
-	col.add_child(W.Shape.new(Vector2(0, 220), func(c: Control, s: Vector2):
-		var m := s * 0.5
-		UI.diamond(c, m, 120, UI.CORE, false)
-		for d in [Vector2(0, -85), Vector2(85, 0), Vector2(0, 85), Vector2(-85, 0)]:
-			UI.diamond(c, m + d, 44, UI.CORE)
-		UI.diamond(c, m, 52, UI.CORE)))
-	col.add_child(W.Text.new("THE GREEN SAPPHIRE IS WHOLE", 56, 600, 0.2))
-	col.add_child(W.Text.new("TOTAL TIME %s   ·   HITS TAKEN %d" % [UI.fmt_time(Game.total_time), Game.total_hits],
-		16, 400, 0.2, Color(UI.CORE, 0.75)))
-	var home := Btn.new("RETURN HOME", Vector2(440, 100), 28)
-	home.pressed.connect(func():
-		Game.new_game()
-		Game.go(HOME))
-	var cc := CenterContainer.new()
-	cc.add_child(home)
-	col.add_child(cc)
-	_ending.add_child(W.top_centred(col, 120))
-	$UI.add_child(_ending)
+	_ending = Control.new()            # (marks it started)
 	$UI/TouchControls.hide()
-	home.grab_focus.call_deferred()
+	Music.stop(1.5)
+	get_tree().create_timer(1.6).timeout.connect(func(): Game.go(ENDING))
 
 
 ## The jail's HUD (handoff screen 03): the objective line with a diamond per
