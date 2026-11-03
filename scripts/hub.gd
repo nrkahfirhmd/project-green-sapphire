@@ -682,8 +682,7 @@ class HubHud extends Control:
 
 		# carry chip slides down 20 units and fades in
 		if _chip > 0.0:
-			var id: int = hub.carried()
-			var label: String = "CARRYING SAPPHIRE " + Game.NUMERALS[maxi(id, 0)]
+			var label := "CARRYING A SAPPHIRE"
 			var w := 18.0 + 14.0 + UI.text_width(label, 22, 600, 0.15) + 48.0
 			var e := 1.0 - pow(1.0 - _chip, 3.0)
 			var r := Rect2(cx - w * 0.5, 82.0 - 20.0 * (1.0 - e), w, 52)

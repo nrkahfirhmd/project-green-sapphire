@@ -190,13 +190,13 @@ func _draw_intro() -> void:
 	var n := clampf((t - 0.15) / 0.25, 0.0, 1.0)
 	var cx := size.x * 0.5 + 40.0 * (1.0 - n)
 	var col := Color(UI.CORE, n * a)
-	var top := band.position.y + 40.0
-	var line: String = "CELL " + Game.NUMERALS[cell]
-	var w := UI.text_width(line, 24, 600, 0.5)
-	UI.text(self, Vector2(cx, top), line, 24, col, 600, 0.5, 0)
-	UI.diamond(self, Vector2(cx - w * 0.5 - 30.0, top + 16.0), 14, col)
-	UI.diamond(self, Vector2(cx + w * 0.5 + 22.0, top + 16.0), 14, col)
-	UI.text(self, Vector2(cx, top + 46.0), Game.BOSS_NAMES.get(cell, ""), 112, col, 600, 0.25, 0)
+	# the name alone: the cells can be taken in any order, so they aren't numbered
+	var name_: String = Game.BOSS_NAMES.get(cell, "")
+	var y := band.get_center().y - UI.text_height(112) * 0.5
+	var w := UI.text_width(name_, 112, 600, 0.25)
+	UI.text(self, Vector2(cx, y), name_, 112, col, 600, 0.25, 0)
+	UI.diamond(self, Vector2(cx - w * 0.5 - 44.0, band.get_center().y), 18, col)
+	UI.diamond(self, Vector2(cx + w * 0.5 + 30.0, band.get_center().y), 18, col)
 
 
 # --- result (screen 06) ----------------------------------------------
@@ -215,14 +215,13 @@ class ResultScreen extends Control:
 		_hud = hud
 		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_STOP
-		var numeral: String = Game.NUMERALS[hud.cell]
 		var name_: String = Game.BOSS_NAMES.get(hud.cell, "")
 		var best: Dictionary = Game.bests.get(hud.cell, {})
 		var sheet: Control
 		var first: BaseButton
 		if win:
 			var col := W.vbox(28)
-			col.add_child(W.Text.new("CELL %s · %s FALLS" % [numeral, name_], 18, 400, 0.3, Color(UI.CORE, 0.75)))
+			col.add_child(W.Text.new("%s FALLS" % name_, 18, 400, 0.3, Color(UI.CORE, 0.75)))
 			col.add_child(W.Text.new("VICTORY", 80, 600, 0.3))
 			col.add_child(W.Shape.new(Vector2(0, 110), func(c: Control, s: Vector2):
 				var m := s * 0.5
@@ -230,7 +229,7 @@ class ResultScreen extends Control:
 				UI.diamond(c, m, 44, UI.CORE)
 				c.draw_rect(Rect2(m.x - 80 - 80, m.y - 1, 80, 2), UI.CORE)
 				c.draw_rect(Rect2(m.x + 80, m.y - 1, 80, 2), UI.CORE)))
-			col.add_child(W.Text.new("SAPPHIRE %s WON" % numeral, 18, 400, 0.3, Color(UI.CORE, 0.75)))
+			col.add_child(W.Text.new("SAPPHIRE WON", 18, 400, 0.3, Color(UI.CORE, 0.75)))
 			col.add_child(_stats(time, hits, best, flags))
 			first = Btn.new("CONTINUE", Vector2(400, 100), 28)
 			first.pressed.connect(func(): hud.continue_pressed.emit())
@@ -357,10 +356,10 @@ func _draw() -> void:
 			UI.heart(self, at, Color(c, 0.6), false)
 	UI.text(self, s.position + Vector2(152, 70), UI.fmt_time(elapsed), 24, c, 400)
 
-	# boss block: "III · NAME", the bar, and one square per spare bar
+	# boss block: its name, the bar, and one square per spare bar
 	var bx := size.x * 0.5 - BAR.x * 0.5 + sin(_jolt * 30.0) * 7.0 * _jolt
 	var by := 20.0
-	UI.text(self, Vector2(size.x * 0.5, by), "%s · %s" % [Game.NUMERALS[cell], Game.BOSS_NAMES.get(cell, "")], 20, c, 600, 0.15, 0)
+	UI.text(self, Vector2(size.x * 0.5, by), Game.BOSS_NAMES.get(cell, ""), 20, c, 600, 0.15, 0)
 	var bar := Rect2(bx, by + UI.text_height(20) + 8.0, BAR.x, BAR.y)
 	_round(bar, UI.MOSS)
 	if _trail > _shown:

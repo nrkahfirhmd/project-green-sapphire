@@ -182,7 +182,6 @@ class Ring extends Node2D:
 
 
 # --- Cells, and the result screen's bests --------------------------------
-const NUMERALS := ["", "I", "II", "III", "IV", "V"]
 const BOSS_NAMES := {1: "THE TURNKEY", 2: "THE PENDULUM", 3: "THE PRISM", 4: "THE HOURGLASS", 5: "THE MIRROR"}
 
 var bests := {}           # cell -> {"time": float, "hits": int}, wins only, this session

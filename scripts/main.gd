@@ -83,7 +83,7 @@ func _ready() -> void:
 	hud.intro_released.connect(_release)
 	_pause = Pause.new()
 	_pause.setup("BACK TO JAIL", JAIL, func():
-		return "%s · %s · %s" % [Game.NUMERALS[cell], Game.BOSS_NAMES[cell], UI.fmt_time(_elapsed)])
+		return "%s · %s" % [Game.BOSS_NAMES[cell], UI.fmt_time(_elapsed)])
 	$UI.add_child(_pause)
 
 	# hold everything still behind the intro card
