@@ -55,9 +55,10 @@ func _ready() -> void:
 	add_child(_amb)
 
 
-func play(name: String, db := 0.0, vary := 0.04) -> void:
+## `pitch` sets where the few-percent nudge is centred (a voice's register).
+func play(name: String, db := 0.0, vary := 0.04, pitch := 1.0) -> void:
 	last = name
-	var pitch := randf_range(1.0 - vary, 1.0 + vary)
+	pitch *= randf_range(1.0 - vary, 1.0 + vary)
 	for s in _streams.get(name, []):
 		var p := _voice()
 		p.stream = s

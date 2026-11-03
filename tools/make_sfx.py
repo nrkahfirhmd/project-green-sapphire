@@ -1013,6 +1013,57 @@ def mirror_clash():
                       (shatter(0.5, 2000, 8000), 0.01, 0.4)), 0.45, 0.85, tail=1.8)
 
 
+# =============================================================================
+# Dialogue (scripts/ui/dialogue.gd)
+# =============================================================================
+
+# voice blips: a letter's worth of sound, re-pitched per mood in the game
+
+@sfx(-20)
+def talk_you():
+    return mix((perc(ting(0.08, 784, (1.0, 2.0, 3.01), tau=0.022, bright=0.3), 0.001, 0.03), 0, 1),
+               (click(0.002, 4000), 0, 0.25))
+
+
+@sfx(-19)
+def talk_knight():
+    # lower and duller, a voice through a helm
+    body = svf(ting(0.1, 294, METAL, tau=0.03, bright=0.35, detune=0.003), 1300, 0.8)
+    return mix((perc(body, 0.002, 0.04), 0, 1), (thump(0.06, 180, 110, 0.02, 0.03), 0, 0.3))
+
+
+# each mood's opening beat, on the haptic pattern's pulses
+
+@sfx(-9)
+def mood_anger():
+    hit = drive(thump(0.35, 130, 45, 0.03, 0.1), 2.2)
+    air = whoosh(0.2, [(0, 1800), (0.2, 400)], [(0, 1), (0.2, 0)], 0.9)
+    return reverb(mix((hit, 0, 1), (air, 0, 0.4), (thump(0.2, 90, 45, 0.02, 0.06), 0.07, 0.5)), 0.3, 0.6, tail=0.6)
+
+
+@sfx(-13)
+def mood_fear():
+    lub = thump(0.16, 80, 46, 0.025, 0.05, 0.004)
+    dub = thump(0.14, 70, 44, 0.025, 0.045, 0.004)
+    hiss = shape(svf(noise(0.5), 5000, 0.7, "hp"), [(0, 0), (0.2, 0.5), (0.5, 0)])
+    return mix((svf(mix((lub, 0, 1), (dub, 0.18, 0.7)), 320, 0.7), 0, 1), (hiss, 0, 0.08))
+
+
+@sfx(-15)
+def mood_sad():
+    d = 1.4
+    sigh = shape(tone(d, [(0, 220), (d, 196)]), [(0, 0), (0.4, 1), (d, 0)])
+    air = shape(svf(noise(d), [(0, 900), (d, 300)], 0.7, "lp"), [(0, 0), (0.3, 1), (d, 0)])
+    return reverb(mix((sigh, 0, 0.6), (air, 0, 0.3)), 0.5, 0.85, tail=1.4)
+
+
+@sfx(-11)
+def mood_resolve():
+    return reverb(mix((ting(0.6, 587, GLASS, tau=0.2, bright=0.45), 0, 0.8),
+                      (ting(0.9, 880, GLASS, tau=0.35, bright=0.5), 0.11, 1),
+                      (thump(0.3, 120, 50, 0.03, 0.1), 0.11, 0.5)), 0.35, 0.7, tail=1.0)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     want = set(sys.argv[1:])

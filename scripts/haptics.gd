@@ -56,6 +56,13 @@ const PATTERNS := {
 	"place": [[0, 50, 0.9], [90, 15, 0.4]],
 	"gate": [[0, 400, 0.35], [450, 400, 0.45], [900, 300, 0.6], [1250, 120, 1.0]],
 	"win": [[0, 30, 0.6], [120, 30, 0.8], [240, 90, 1.0]],
+	# dialogue: a faint tick under the voice, and each mood's opening beat
+	"talk": [[0, 5, 0.12]],
+	"talk_hard": [[0, 8, 0.3]],                                    # angry words land harder
+	"mood_anger": [[0, 45, 0.9], [70, 20, 0.5]],
+	"mood_fear": [[0, 25, 0.45], [180, 20, 0.3]],                  # a heartbeat, quick
+	"mood_sad": [[0, 140, 0.25]],                                  # a long low sigh
+	"mood_resolve": [[0, 15, 0.5], [110, 40, 0.85]],               # gather, then commit
 	"lose": [[0, 250, 0.5]],
 }
 
