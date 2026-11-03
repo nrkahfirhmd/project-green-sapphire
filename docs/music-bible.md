@@ -410,7 +410,7 @@ Low brass and choir. S rises in sequence, a step higher on each repeat, and ends
 | `final` | gate V, the Mirror | 105.75 s |
 | `ending` | the ending (`scenes/ending.tscn`): an animation and credits roll timed to it, on its clock | plays once |
 
-- A fight's music fades out (1.5 s) when it's won or lost, under the win/lose sting, and the jail's music comes back
+- A fight's music fades out (1.5 s) when it's won or lost, under the lose sting (a win falls quiet: its sting was cut), and the jail's music comes back
   when you return.
 - **Stings:** `tools/render_stings.py` renders the MIDI stings through FluidSynth with the GeneralUser GS soundfont
   (free for any use; kept outside the repo) into `media/sfx/`, where `Sfx` plays them by name:
@@ -418,7 +418,7 @@ Low brass and choir. S rises in sequence, a step higher on each repeat, and ends
 | Sting | Plays when |
 |---|---|
 | `intro_<boss>` | on the boss's title card. The fight's music waits for it to ring out (`main.gd`, `INTRO_HOLD`). |
-| `win`, `lose` | the fight ends. They replace the synth versions, whose recipes are retired in `make_sfx.py`. |
+| `lose` | the fight is lost. It replaces the synth version, whose recipe is retired in `make_sfx.py`. A win has no sting. |
 | `place_1`…`place_4` | over `place`, a step higher with each sapphire set on the altar |
 | `gate_lift` | with the stone `gate` grind as the great gate unlocks |
 | `hourglass_timesup.orch` | layered on the synth Time's Up |

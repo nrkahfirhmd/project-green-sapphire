@@ -444,7 +444,7 @@ def door():
 
 
 # intro, win, lose: retired. They are now the score's stings, rendered by
-# tools/render_stings.py (intro_<boss>, win, lose).
+# tools/render_stings.py (intro_<boss>, lose). A win has no sting.
 
 
 @sfx(-7)
