@@ -7,6 +7,7 @@ const _CFG_PATH := "user://settings.cfg"
 var volume := 1.0            # 0..1, Master bus
 var haptic_enabled := true
 var prologue_done := false   # PLAY skips the prologue once it has been played (or skipped)
+var met: Array = []          # cells whose warden has said its first words
 
 func _ready() -> void:
 	_load_settings()
@@ -33,12 +34,14 @@ func _load_settings() -> void:
 	volume = cfg.get_value("audio", "volume", volume)
 	haptic_enabled = cfg.get_value("input", "haptic", haptic_enabled)
 	prologue_done = cfg.get_value("story", "prologue_done", prologue_done)
+	met = cfg.get_value("story", "met", met)
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("audio", "volume", volume)
 	cfg.set_value("input", "haptic", haptic_enabled)
 	cfg.set_value("story", "prologue_done", prologue_done)
+	cfg.set_value("story", "met", met)
 	cfg.save(_CFG_PATH)
 
 # --- Locked 3-color palette (design bible) -------------------------------
@@ -100,6 +103,11 @@ func finish_prologue() -> void:
 	wake_in_jail = true
 	prologue_done = true
 	_save_settings()
+
+func mark_met(cell: int) -> void:
+	if not met.has(cell):
+		met.append(cell)
+		_save_settings()
 
 # --- Jail progress (session only) ---------------------------------------
 # Each cell's boss drops a sapphire. It is "carried" until the player sets it

@@ -27,6 +27,8 @@ func _lines_are_valid() -> void:
 	var all: Array = Story.WAKE + Story.MEET + Story.FIGHT + Story.ULTIMATE + Story.DEFEATED + Story.JAIL_WAKE
 	for k in Story.TUTORIAL:
 		all += Story.TUTORIAL[k]
+	for c in [1, 2, 3, 4, 5]:
+		all += Story.WARDENS[c]
 	for l in all:
 		assert(Dialogue.MOODS.has(l[1]), "unknown mood: %s" % l[1])
 		assert(Dialogue.VOICES.has(l[0]), "unknown speaker: %s" % l[0])

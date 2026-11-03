@@ -9,7 +9,9 @@ extends RefCounted
 ## The lore under it, never said outright: it is all the player's own mind,
 ## each warden one of their feelings, and the fallen knight is the player
 ## from the other dream, the one where they died and failed.
-
+##
+## The wardens, as feelings: the Turnkey is guardedness, the Pendulum
+## regret, the Prism anger, the Hourglass anxiety. The Mirror is the self.
 
 # --- 1. A dark room --------------------------------------------------
 const WAKE := [
@@ -74,3 +76,42 @@ const JAIL_WAKE := [
 	["", "resolve", "I know what I have to do."],
 ]
 
+# --- 7-9. Each warden's first words (main.gd, once per cell) ---------------
+const WARDENS := {
+	1: [
+		["THE TURNKEY", "calm", "Turn back. Everything in here stays locked."],
+		["YOU", "calm", "I only want the sapphire."],
+		["THE TURNKEY", "fear", "That's what they all say. Then they take the rest."],
+		["THE TURNKEY", "anger", "Nothing gets in. Nothing gets out. Not again."],
+		["", "resolve", "Then I'll pick the lock."],
+	],
+	2: [
+		["THE PENDULUM", "sad", "Back... and forth. Back... and forth."],
+		["THE PENDULUM", "sad", "Every page in here is something you should have done differently."],
+		["YOU", "fear", "I don't remember any of them."],
+		["THE PENDULUM", "whisper", "You will. I swing until you do."],
+		["", "resolve", "Then I'll stop the swing."],
+	],
+	3: [
+		["THE PRISM", "anger", "Finally. Something to break."],
+		["YOU", "fear", "I didn't come here to fight you."],
+		["THE PRISM", "anger", "Everyone fights me. I'm what you hit when nothing else will hold still."],
+		["THE PRISM", "calm", "No tricks. No shield. Just you and me."],
+		["", "resolve", "Head on, then."],
+	],
+	4: [
+		["THE HOURGLASS", "fear", "You're late. You're already late. Can you hear it running out?"],
+		["YOU", "fear", "Running out of what?"],
+		["THE HOURGLASS", "fear", "Everything! Every grain is something that could go wrong!"],
+		["THE HOURGLASS", "anger", "And when the top runs dry... time's up."],
+		["", "resolve", "Breathe. One cut at a time."],
+	],
+	5: [
+		["", "whisper", "The last door. He said it wore his face."],
+		["THE MIRROR", "calm", "Hello again."],
+		["YOU", "fear", "...That's my face."],
+		["THE MIRROR", "sad", "It was his, too. He stood where you stand, and he lost."],
+		["THE MIRROR", "anger", "Every warden was a piece of you. I am all of them at once."],
+		["", "resolve", "Then I end this. And I wake up."],
+	],
+}

@@ -38,6 +38,11 @@ const VOICES := {
 	"YOU": {"sfx": "talk_you", "pitch": 1.0, "db": 0.0},
 	"???": {"sfx": "talk_knight", "pitch": 1.0, "db": 0.0},
 	"FALLEN KNIGHT": {"sfx": "talk_knight", "pitch": 1.0, "db": 0.0},
+	"THE TURNKEY": {"sfx": "talk_knight", "pitch": 1.35, "db": -2.0},
+	"THE PENDULUM": {"sfx": "talk_knight", "pitch": 0.78, "db": 0.0},
+	"THE PRISM": {"sfx": "talk_you", "pitch": 1.25, "db": 0.0},
+	"THE HOURGLASS": {"sfx": "talk_knight", "pitch": 1.1, "db": 0.0},
+	"THE MIRROR": {"sfx": "talk_you", "pitch": 0.84, "db": 0.0},     # your own voice, lower
 }
 
 ## cps: letters a second. every: a blip every n letters. pitch: on top of the

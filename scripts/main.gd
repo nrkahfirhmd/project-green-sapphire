@@ -30,6 +30,8 @@ const SHAKE_MAX := 26.0           # camera offset at full trauma
 const DROP_TIME := 0.8           # the sapphire's fall from a beaten boss
 const Pause := preload("res://scripts/ui/pause_menu.gd")
 const UI := preload("res://scripts/ui/ui.gd")
+const Story := preload("res://scripts/story.gd")
+const Dialogue := preload("res://scripts/ui/dialogue.gd")
 
 var arena_rect: Rect2            # bounding box of the arena; scenery lays out around it
 var arena_poly: PackedVector2Array   # the walkable floor itself
@@ -70,10 +72,6 @@ func _ready() -> void:
 	# the boss's intro sting plays first (hud.gd); the fight's music waits
 	# for it to ring out, then fades in
 	Music.stop(0.6)
-	var track := "final" if cell == 5 else "boss"
-	get_tree().create_timer(INTRO_HOLD).timeout.connect(func():
-		if not _over:
-			Music.play(track, 1.5))
 	_build_arena_poly(spec["floor"])
 	_spawn(spec)
 
@@ -92,12 +90,42 @@ func _ready() -> void:
 	player.set_physics_process(false)
 	boss.set_physics_process(false)
 	$UI/TouchControls.locked = true
-	hud.play_intro()
+	# the first time in a cell its warden speaks before the title card. Only
+	# in a real run: the checks build this scene under their own node.
+	if not Game.met.has(cell) and get_parent() == get_tree().root:
+		_meet()
+	else:
+		_open()
 
 	player.hit_taken.connect(func(): _hits_taken += 1)
 	player.died.connect(_on_player_died)
 	boss.died.connect(_on_boss_died)
 	boss.phase_changed.connect(_on_phase_changed)
+
+
+## The warden's first words, then the card.
+func _meet() -> void:
+	var dlg := Dialogue.new()
+	$UI.add_child(dlg)
+	$UI.move_child(dlg, _pause.get_index())    # under the pause sheet
+	$UI/TouchControls.visible = false
+	await get_tree().create_timer(0.6).timeout
+	dlg.play(Story.WARDENS[cell])
+	await dlg.finished
+	Game.mark_met(cell)
+	$UI/TouchControls.visible = true
+	dlg.queue_free()
+	_open()
+
+
+## The title card and its sting; the fight's music waits for the sting to
+## ring out, then fades in.
+func _open() -> void:
+	$UI/HUD.play_intro()
+	var track := "final" if cell == 5 else "boss"
+	get_tree().create_timer(INTRO_HOLD).timeout.connect(func():
+		if not _over:
+			Music.play(track, 1.5))
 
 
 func _release() -> void:
