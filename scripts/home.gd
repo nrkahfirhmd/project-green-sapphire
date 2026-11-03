@@ -9,6 +9,7 @@ const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
 const Settings := preload("res://scripts/ui/settings_panel.gd")
 const JAIL := "res://scenes/hub.tscn"
+const PROLOGUE := "res://scenes/prologue.tscn"
 const Backdrop := preload("res://scripts/title_backdrop.gd")
 
 var _menu: Control
@@ -84,7 +85,7 @@ func _ready() -> void:
 	_settings.hide()
 	add_child(_settings)
 
-	_play.pressed.connect(func(): Game.go(JAIL))
+	_play.pressed.connect(func(): Game.go(JAIL if Game.prologue_done else PROLOGUE))
 	settings.pressed.connect(_open_settings.bind(true))
 	_settings.closed.connect(_open_settings.bind(false))
 	_play.grab_focus.call_deferred()

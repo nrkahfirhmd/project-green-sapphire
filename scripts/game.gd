@@ -6,6 +6,7 @@ extends Node
 const _CFG_PATH := "user://settings.cfg"
 var volume := 1.0            # 0..1, Master bus
 var haptic_enabled := true
+var prologue_done := false   # PLAY skips the prologue once it has been played (or skipped)
 
 func _ready() -> void:
 	_load_settings()
@@ -31,11 +32,13 @@ func _load_settings() -> void:
 		return
 	volume = cfg.get_value("audio", "volume", volume)
 	haptic_enabled = cfg.get_value("input", "haptic", haptic_enabled)
+	prologue_done = cfg.get_value("story", "prologue_done", prologue_done)
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("audio", "volume", volume)
 	cfg.set_value("input", "haptic", haptic_enabled)
+	cfg.set_value("story", "prologue_done", prologue_done)
 	cfg.save(_CFG_PATH)
 
 # --- Locked 3-color palette (design bible) -------------------------------
@@ -89,6 +92,14 @@ func ellipse(rx: float, ry: float, segments := 22) -> PackedVector2Array:
 		var a := TAU * i / segments
 		pts.append(Vector2(cos(a) * rx, sin(a) * ry))
 	return pts
+
+# --- Story ----------------------------------------------------------
+var wake_in_jail := false    # the prologue just ended: the jail opens on the waking lines
+
+func finish_prologue() -> void:
+	wake_in_jail = true
+	prologue_done = true
+	_save_settings()
 
 # --- Jail progress (session only) ---------------------------------------
 # Each cell's boss drops a sapphire. It is "carried" until the player sets it

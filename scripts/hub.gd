@@ -42,6 +42,8 @@ const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
 const Pause := preload("res://scripts/ui/pause_menu.gd")
 const P := preload("res://scripts/paint.gd")
+const Story := preload("res://scripts/story.gd")
+const Dialogue := preload("res://scripts/ui/dialogue.gd")
 
 var hall: Rect2                  # the walkable floor
 var altar: Vector2
@@ -107,11 +109,31 @@ func _ready() -> void:
 		Game.ring(self, player.global_position, 140.0)    # stepping back out of the cell
 	_hud = HubHud.new(self)
 	$UI.add_child(_hud)
+	if Game.wake_in_jail:
+		Game.wake_in_jail = false
+		_wake()
 	var pause := Pause.new()
 	pause.setup("HOME", HOME, func(): return "THE JAIL · %d / 4" % Game.crystals_placed())
 	$UI.add_child(pause)
 	if Game.crystals.get(5, "") == "placed":
 		_show_ending()
+
+
+## Straight from the prologue: the player comes to on the jail floor and
+## thinks it through before they can move (story beats 5-6).
+func _wake() -> void:
+	var dlg := Dialogue.new()
+	$UI.add_child(dlg)
+	player.set_physics_process(false)
+	$UI/TouchControls.visible = false
+	await get_tree().create_timer(0.9).timeout
+	dlg.play(Story.JAIL_WAKE)
+	await dlg.finished
+	await get_tree().physics_frame        # the press that closed the box mustn't swing too
+	await get_tree().physics_frame
+	player.set_physics_process(true)
+	$UI/TouchControls.visible = true
+	dlg.queue_free()
 
 
 # --- rules -----------------------------------------------------------

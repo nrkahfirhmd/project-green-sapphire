@@ -30,6 +30,7 @@ const DRAG_FULL := 90.0         # drag this far for a full-strength aim
 const COOLING := ["dodge", "ricochet", "blink"]   # buttons with a cooldown ring
 
 var locked := false             # set while input must not reach the game
+var highlight := ""             # an action (or "move", the stick) the tutorial is pointing at
 var _stick_touch := -1
 var _stick_origin := Vector2.ZERO
 var _knob := Vector2.ZERO       # knob offset from the stick origin, in pixels
@@ -317,6 +318,15 @@ func _draw() -> void:
 			draw_arc(p, r, 0, TAU, 48, Color(c, 0.6), UI.STROKE)
 		var px := 18 if r > 56.0 else 14
 		UI.text(self, p - Vector2(0, UI.text_height(px) * 0.5), b["t"], px, label_col, 600, 0.12, 0)
+
+	# the tutorial's pointer: a ring breathing round the control it teaches
+	if highlight != "":
+		var hb := _button(highlight)
+		var hp: Vector2 = _stick_home() if highlight == "move" else hb.get("p", Vector2.ZERO)
+		var hr: float = STICK_RADIUS if highlight == "move" else float(hb.get("r", 0.0))
+		if highlight == "move" or not hb.is_empty():
+			var k := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0)
+			draw_arc(hp, hr + 12.0 + 8.0 * k, 0, TAU, 64, Color(c, 0.4 + 0.5 * k), 4.0)
 
 	# RICOCHET's pull: a line from the button to the thumb
 	if _drag_touch != -1 and _drag.length() > 20.0:
