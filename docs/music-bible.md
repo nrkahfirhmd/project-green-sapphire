@@ -412,8 +412,19 @@ Low brass and choir. S rises in sequence, a step higher on each repeat, and ends
 
 - A fight's music fades out (1.5 s) when it's won or lost, under the win/lose sting, and the jail's music comes back
   when you return.
-- **Not yet:** a separate theme per boss, phase-by-phase music changes, a Music volume slider, ducking under the pause
-  menu, and the intro, victory and gate stings as audio. The rest of this section describes that fuller plan.
+- **Stings:** `tools/render_stings.py` renders the MIDI stings through FluidSynth with the GeneralUser GS soundfont
+  (free for any use; kept outside the repo) into `media/sfx/`, where `Sfx` plays them by name:
+
+| Sting | Plays when |
+|---|---|
+| `intro_<boss>` | on the boss's title card. The fight's music waits for it to ring out (`main.gd`, `INTRO_HOLD`). |
+| `win`, `lose` | the fight ends. They replace the synth versions, whose recipes are retired in `make_sfx.py`. |
+| `place_1`…`place_4` | over `place`, a step higher with each sapphire set on the altar |
+| `gate_lift` | with the stone `gate` grind as the great gate unlocks |
+| `hourglass_timesup.orch` | layered on the synth Time's Up |
+
+- **Not yet:** a separate theme per boss, phase-by-phase music changes, a Music volume slider, and ducking under the
+  pause menu. The rest of this section describes that fuller plan.
 
 **The full plan:**
 

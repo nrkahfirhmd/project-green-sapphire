@@ -23,6 +23,8 @@ const Btn := preload("res://scripts/ui/ui_button.gd")
 const BAR := Vector2(560, 22)
 
 var cell := 3
+# the boss's own sting under the title card (media/sfx/intro_<boss>.wav)
+const INTRO_STING := {1: "turnkey", 2: "pendulum", 3: "prism", 4: "hourglass", 5: "mirror"}
 var _p_hp := 4
 var _p_max := 4
 var _lost := -1                  # index of the heart that was just lost
@@ -157,7 +159,7 @@ func _process(delta: float) -> void:
 		_intro += delta
 		if was < 0.15 and _intro >= 0.15:
 			Haptics.play("intro")       # the boss's name lands
-			Sfx.play("intro")
+			Sfx.play("intro_" + INTRO_STING.get(cell, "turnkey"), 0.0, 0.0)
 		if was < 1.4 and _intro >= 1.4:
 			intro_released.emit()
 		if _intro >= 1.6:

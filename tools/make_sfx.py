@@ -443,34 +443,8 @@ def door():
     return reverb(mix((body, 0, 1), (air, 0, 0.5), (bell, 0.01, 0.25)), 0.45, 0.85, tail=1.4)
 
 
-@sfx(-2)
-def intro():
-    # the boss's name slams down
-    sub = drive(thump(1.4, 95, 30, 0.1, 0.45, 0.002), 2.2)
-    crack = perc(svf(noise(0.15), 2000, 0.7, "hp"), 0.0005, 0.03)
-    gong = gain(fm(2.0, 110, 1.4, [(0, 6), (1.5, 0.2)]), 1.0)
-    perc(gong, 0.002, 0.7)
-    bell = ting(2.0, 220, BELL, tau=1.1, bright=0.6)
-    return reverb(mix((sub, 0, 1), (crack, 0, 0.5), (gong, 0, 0.35), (bell, 0, 0.4)), 0.5, 0.9, tail=2.2)
-
-
-# =============================================================================
-# The player's rapier and kit
-# =============================================================================
-
-def _swing_light_body():
-    a = whoosh(0.17, [(0, 1800), (0.045, 5400), (0.17, 2300)], [(0, 0), (0.045, 1), (0.08, 0.45), (0.17, 0)], 1.6)
-    b = whoosh(0.17, [(0, 800), (0.05, 1900), (0.17, 900)], [(0, 0), (0.05, 1), (0.17, 0)], 1.0)
-    shing = ting(0.15, 5600, (1.0, 1.5, 2.3), tau=0.03, bright=0.5)
-    return mix((a, 0, 1), (b, 0, 0.45), (shing, 0.035, 0.12))
-
-
-def _swing_heavy_release():
-    a = whoosh(0.34, [(0, 700), (0.07, 3800), (0.34, 1100)], [(0, 0), (0.07, 1), (0.14, 0.5), (0.34, 0)], 1.3)
-    b = whoosh(0.34, [(0, 250), (0.08, 900), (0.34, 300)], [(0, 0), (0.08, 1), (0.34, 0)], 0.9)
-    sub = thump(0.3, 130, 55, 0.04, 0.09, 0.01)
-    shing = ting(0.25, 4200, (1.0, 1.5, 2.3), tau=0.05, bright=0.5)
-    return mix((a, 0, 1), (b, 0, 0.6), (sub, 0.04, 0.45), (shing, 0.05, 0.15))
+# intro, win, lose: retired. They are now the score's stings, rendered by
+# tools/render_stings.py (intro_<boss>, win, lose).
 
 
 @sfx(-7)
@@ -727,40 +701,6 @@ def lamp():
         add(pad, tone(1.0, f), 0, 0.3)
     shape(pad, [(0, 0), (0.12, 1), (1.0, 0)])
     return reverb(mix((pad, 0, 1), (ting(0.8, 1568, GLASS, tau=0.3, bright=0.45), 0, 0.3)), 0.4, 0.8, tail=1.2)
-
-
-@sfx(-2)
-def win():
-    out = zeros(1)
-    # E major, the key of the pickup arpeggio that sounds in the same frame
-    for t, f in ((0.0, 659), (0.12, 831), (0.24, 988)):
-        add(out, ting(0.6, f, GLASS, tau=0.25, bright=0.5), t, 0.6)
-        add(out, thump(0.15, 220, 110, 0.02, 0.05), t, 0.3)
-    for f in (1319, 1661, 1976, 2637):
-        add(out, ting(2.0, f, GLASS, tau=1.0, bright=0.45), 0.36, 0.3)
-    swell = shape(svf(add(tone(1.8, 330, "saw"), tone(1.8, 494, "saw"), 0, 0.8), 1600, 0.7), [(0, 0), (0.4, 1), (1.8, 0)])
-    add(out, swell, 0.24, 0.12)
-    add(out, grains(1.2, 50, 3000, 9000, (0.02, 0.06), decay=0.5), 0.36, 0.35)
-    return reverb(out, 0.45, 0.85, tail=2.2)
-
-
-@sfx(-5)
-def lose():
-    out = zeros(1)
-    # G, E flat, C, after the death sound's three thuds (same frame) have landed
-    for t, f, d in ((0.5, 392, 0.4), (0.75, 311, 0.4), (1.0, 262, 1.3)):
-        add(out, perc(svf(tone(d, f, "tri"), 1400, 0.7), 0.01, 0.15 if d < 1 else 0.5), t, 0.6)
-    add(out, shape(svf(tone(1.8, 65, "saw"), 300, 0.7), [(0, 0), (0.5, 1), (1.8, 0)]), 0.5, 0.3)
-    return reverb(out, 0.45, 0.85, tail=1.8)
-
-
-# =============================================================================
-# The Turnkey: steel keys and a lock
-# =============================================================================
-
-def _key_clank(f):
-    return mix((ting(0.3, f, METAL, tau=0.07, bright=0.55), 0, 0.55),
-               (thump(0.1, 200, 90, 0.015, 0.035), 0, 0.6), (click(0.003, 2500), 0, 0.5))
 
 
 @sfx(-5)

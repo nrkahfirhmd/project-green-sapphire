@@ -158,6 +158,7 @@ func _process(delta: float) -> void:
 			_gate_felt = true
 			Haptics.play("gate")       # the bars grinding down into the floor
 			Sfx.play("gate")
+			Sfx.play("gate_lift", 0.0, 0.0)    # brass and choir climbing as the bars sink
 		if _gate_felt:
 			_gate_open = move_toward(_gate_open, 1.0, delta * 0.7)
 	for id in _flying.keys():
@@ -192,6 +193,7 @@ func _set_sapphires() -> void:
 func _landed(id: int) -> void:
 	Haptics.play("place")
 	Sfx.play("place")
+	Sfx.play("place_%d" % clampi(Game.crystals_placed(), 1, 4), 0.0, 0.0)   # a step higher per stone
 	spawn_burst(_socket(id), Game.SAPPHIRE_CORE, 18, 260.0)
 	spawn_ring(altar, 260.0, Game.SAPPHIRE_CORE, 0.5)
 	Post.shock(altar, 0.9)

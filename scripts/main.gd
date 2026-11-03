@@ -25,6 +25,7 @@ const BOSSES := {
 }
 const DEFAULT_CELL := 3
 const PICKUP_DIST := 50.0
+const INTRO_HOLD := 4.2           # the intro sting's length, before the fight music
 const SHAKE_MAX := 26.0           # camera offset at full trauma
 const DROP_TIME := 0.8           # the sapphire's fall from a beaten boss
 const Pause := preload("res://scripts/ui/pause_menu.gd")
@@ -66,7 +67,13 @@ func _ready() -> void:
 	cell = Game.current_boss if BOSSES.has(Game.current_boss) else DEFAULT_CELL
 	var spec: Dictionary = BOSSES[cell]
 	Sfx.ambience("cell%d" % cell)
-	Music.play("final" if cell == 5 else "boss")
+	# the boss's intro sting plays first (hud.gd); the fight's music waits
+	# for it to ring out, then fades in
+	Music.stop(0.6)
+	var track := "final" if cell == 5 else "boss"
+	get_tree().create_timer(INTRO_HOLD).timeout.connect(func():
+		if not _over:
+			Music.play(track, 1.5))
 	_build_arena_poly(spec["floor"])
 	_spawn(spec)
 
