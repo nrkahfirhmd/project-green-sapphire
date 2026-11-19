@@ -378,6 +378,9 @@ func _do_attack(delta: float) -> void:
 		return
 	if _atk_phase == "active":
 		velocity = facing * _lunge / float(a["active"])   # the lunge
+	elif _atk_phase == "recovery" and _atk_name == "light" and is_in_group("player"):
+		# a jab's recovery walks: no freeze after it, but the next swing still waits
+		velocity = Input.get_vector("move_left", "move_right", "move_up", "move_down") * SPEED
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, SPEED * 4.0 * delta)
 	_atk_timer -= delta
