@@ -16,7 +16,8 @@ extends CharacterBody2D
 ## The player is invulnerable while ricocheting, blinking or in the ultimate.
 ##
 ## Thrusts lunge only to close the gap to a boss in reach, never past it, so
-## they aren't a way to move. A dodge cancels a thrust's recovery, and one
+## they aren't a way to move. A dodge cancels a thrust's recovery (one pressed
+## earlier in the thrust is held and fires the moment recovery starts), and one
 ## that slips through a hit (a perfect dodge) slows time and charges the ult.
 ##
 ## Code-driven rig: upright 3/4 view, posed from facing, animated with tweens.
@@ -105,6 +106,7 @@ var _atk_phase := ""          # "windup" | "active" | "recovery"
 var _atk_timer := 0.0
 var _atk_dur := 0.0           # duration of current phase, for progress
 var _atk_hit_done := false
+var _dodge_queued := false    # dodge pressed mid-thrust, waiting for the recovery
 var _flash := 0.0             # Pale Jade damage flash, seconds remaining
 var _visual := Vector2.ONE    # squash/stretch scale, tweened
 
@@ -341,6 +343,7 @@ func _start_attack(name: String) -> void:
 	_atk_timer = ATTACKS[name]["windup"]
 	_atk_dur = _atk_timer
 	_atk_hit_done = false
+	_dodge_queued = false
 	_lunge = _lunge_for(ATTACKS[name])
 	velocity = Vector2.ZERO
 	_walk_amp = 0.0
@@ -365,8 +368,11 @@ func _lunge_for(a: Dictionary) -> float:
 
 func _do_attack(delta: float) -> void:
 	var a: Dictionary = ATTACKS[_atk_name]
-	# a dodge cancels the recovery: committing to a thrust is never a trap
-	if _atk_phase == "recovery" and Input.is_action_just_pressed("dodge") and _dodge_cd <= 0.0 and is_in_group("player"):
+	# a dodge cancels the recovery: committing to a thrust is never a trap. A
+	# press during windup or the hit is kept, so an early thumb isn't eaten.
+	if Input.is_action_just_pressed("dodge"):
+		_dodge_queued = true
+	if _atk_phase == "recovery" and _dodge_queued and _dodge_cd <= 0.0 and is_in_group("player"):
 		_atk_name = ""
 		_start_dodge()
 		return

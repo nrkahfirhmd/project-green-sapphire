@@ -18,12 +18,18 @@ extends Control
 ##
 ## Hidden once the run ends (the result screen has its own buttons) and while
 ## the game is paused.
+##
+## Each button carries an icon over its name (a blade for the thrusts, chevrons
+## for the dodge) so what it does reads before the word does. With `editing`
+## set (Settings > ARRANGE BUTTONS) it becomes the layout editor instead: drag
+## a button to move it, saved to Game.button_layout. `hidden_buttons` lets the
+## prologue bring each one in only as it is taught.
 
 const UI := preload("res://scripts/ui/ui.gd")
 
 const STICK_RADIUS := 115.0
 const KNOB_RADIUS := 50.0
-const TOUCH_SLOP := 1.15        # thumbs are imprecise; accept a little outside the circle
+const TOUCH_SLOP := 1.3         # thumbs are imprecise; accept a little outside the circle
 const PAUSE := Vector2(100, 100)
 const COOLDOWN_R := 53.0
 const DRAG_FULL := 90.0         # drag this far for a full-strength aim
@@ -45,12 +51,32 @@ var _drag_touch := -1           # the touch dragging back on RICOCHET
 var _drag := Vector2.ZERO
 var _was_ult_ready := false
 var _deny := {}                 # action -> 1 -> 0 shake when pressed but not ready
+var hidden_buttons: Array = []  # actions not drawn or pressable yet
+var editing := false            # layout editor mode, see the header
+var _edit_touch := -1
+var _edit_a := ""
+var _edit_grab := Vector2.ZERO
+
+signal edit_done
+
+## Where each button sits by default, as an offset from the safe area's
+## bottom-right at button size 1, and its radius.
+const LAYOUT := {
+	"attack_heavy": [Vector2(130, 150), 70.0, "HEAVY"],
+	"attack_light": [Vector2(295, 77), 60.0, "LIGHT"],
+	"dodge": [Vector2(160, 322), 58.0, "DODGE"],
+	"blink": [Vector2(330, 250), 52.0, "BLINK"],
+	"ricochet": [Vector2(460, 120), 52.0, "RICOCHET"],
+	"ultimate": [Vector2(150, 480), 52.0, "ULT"],
+}
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS    # so a release still lands if a press pauses the game
 	_stick_origin = _stick_home()
+	if editing:
+		return
 	await get_tree().process_frame     # current_scene isn't set yet during a scene change
 	# the jail has no run to end, so it has no run_over and the controls never close
 	var scene := get_tree().current_scene
@@ -76,14 +102,30 @@ func _stick_home() -> Vector2:
 func _buttons() -> Array:
 	var s := Game.safe_area(size)
 	var k := Game.button_size
-	return [
-		{"a": "attack_heavy", "p": s.end - Vector2(130, 150) * k, "r": 70.0 * k, "t": "HEAVY"},
-		{"a": "attack_light", "p": s.end - Vector2(295, 77) * k, "r": 60.0 * k, "t": "LIGHT"},
-		{"a": "dodge", "p": s.end - Vector2(160, 322) * k, "r": 58.0 * k, "t": "DODGE"},
-		{"a": "blink", "p": s.end - Vector2(330, 250) * k, "r": 52.0 * k, "t": "BLINK"},
-		{"a": "ricochet", "p": s.end - Vector2(460, 120) * k, "r": 52.0 * k, "t": "RICOCHET"},
-		{"a": "ultimate", "p": s.end - Vector2(150, 480) * k, "r": 52.0 * k, "t": "ULT"},
-	]
+	var out := []
+	for a in LAYOUT:
+		if hidden_buttons.has(a):
+			continue
+		var d: Array = LAYOUT[a]
+		var off: Vector2 = Game.button_layout.get(a, d[0])
+		var r: float = d[1] * k
+		# clamped on read too, so a layout saved at a smaller size never falls off the screen
+		var p := (s.end - off * k).clamp(s.position + Vector2(r, r), s.end - Vector2(r, r))
+		out.append({"a": a, "p": p, "r": r, "t": d[2]})
+	return out
+
+
+## The button under a touch: the nearest one in reach, so the generous
+## slop round each never steals a press meant for its neighbour.
+func _hit(pos: Vector2) -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for b in _buttons():
+		var d := pos.distance_to(b["p"]) / float(b["r"])
+		if d <= TOUCH_SLOP and d < best_d:
+			best = b
+			best_d = d
+	return best
 
 
 func _pause_rect() -> Rect2:
@@ -96,6 +138,9 @@ func _active() -> bool:
 
 # --- input ------------------------------------------------------------
 func _input(event: InputEvent) -> void:
+	if editing:
+		_edit_input(event)
+		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			if _active():
@@ -112,10 +157,10 @@ func _on_press(index: int, pos: Vector2) -> void:
 	if _pause_rect().grow(10).has_point(pos):
 		_tap(index, "pause")
 		return
-	for b in _buttons():
-		if pos.distance_to(b["p"]) <= float(b["r"]) * TOUCH_SLOP:
-			_tap(index, b["a"])
-			return
+	var hit := _hit(pos)
+	if not hit.is_empty():
+		_tap(index, hit["a"])
+		return
 	# the stick is floating: it appears under the thumb instead of at a fixed
 	# spot, which is the difference between usable and not on a phone
 	if _stick_touch == -1 and pos.x < size.x * 0.5:
@@ -259,6 +304,9 @@ func _ult() -> Vector2:
 
 # --- draw -------------------------------------------------------------
 func _draw() -> void:
+	if editing:
+		_draw_editor()
+		return
 	if _over or get_tree().paused:
 		return
 	var c := UI.CORE
@@ -324,8 +372,7 @@ func _draw() -> void:
 		else:
 			draw_circle(p, r, Color(UI.MOSS, 0.8))
 			draw_arc(p, r, 0, TAU, 48, c, UI.STROKE)
-		var px := 18 if r > 56.0 else 14
-		UI.text(self, p - Vector2(0, UI.text_height(px) * 0.5), b["t"], px, label_col, 600, 0.12, 0)
+		_face(b, p, r, label_col)
 
 	# the tutorial's pointer: a ring breathing round the control it teaches
 	if highlight != "":
@@ -347,3 +394,102 @@ func _dashed_circle(p: Vector2, r: float, col: Color) -> void:
 	for k in 24:
 		var a0 := TAU * k / 24.0
 		draw_arc(p, r, a0, a0 + TAU / 48.0, 4, col, UI.STROKE)
+
+
+## A button's icon over its name.
+func _face(b: Dictionary, p: Vector2, r: float, col: Color) -> void:
+	var px := 18 if r > 66.0 else 14
+	var u := r * 0.2                   # icon unit
+	var ic := p - Vector2(0, r * 0.22)
+	var w := UI.STROKE + 1.0
+	match b["a"]:
+		"attack_light", "attack_heavy":
+			# a blade pointing up and right; the heavy one longer and broader
+			var n := 1.3 if b["a"] == "attack_heavy" else 1.0
+			var d := Vector2(1, -1).normalized()
+			var hilt := ic - d * u * 1.3 * n
+			draw_line(hilt, ic + d * u * 1.5 * n, col, w * n)
+			draw_line(hilt + d.orthogonal() * u * 0.6, hilt - d.orthogonal() * u * 0.6, col, w)
+		"dodge":
+			for x in [-0.5, 0.5]:
+				var t := ic + Vector2(u * x + u * 0.4, 0)
+				draw_polyline(PackedVector2Array([t + Vector2(-u * 0.7, -u * 0.8), t, t + Vector2(-u * 0.7, u * 0.8)]), col, w)
+		"blink":
+			for i in 3:
+				var x0 := ic.x - u * 1.4 + i * u * 0.75
+				draw_line(Vector2(x0, ic.y), Vector2(x0 + u * 0.4, ic.y), col, w)
+			draw_polyline(PackedVector2Array([ic + Vector2(u * 0.9, -u * 0.6), ic + Vector2(u * 1.5, 0), ic + Vector2(u * 0.9, u * 0.6)]), col, w)
+		"ricochet":
+			draw_polyline(PackedVector2Array([ic + Vector2(-u * 1.4, u * 0.6), ic + Vector2(-u * 0.5, -u * 0.6), ic + Vector2(u * 0.4, u * 0.6), ic + Vector2(u * 1.3, -u * 0.6)]), col, w)
+		"ultimate":
+			UI.diamond(self, ic, u * 1.6, col, false, w)
+			UI.diamond(self, ic, u * 0.7, col, true)
+	UI.text(self, p + Vector2(0, r * 0.18), b["t"], px, col, 600, 0.12, 0)
+
+
+## Brings a hidden button in, with the ready pop.
+func reveal(action: String) -> void:
+	hidden_buttons.erase(action)
+	_pop[action] = 1.0
+
+
+# --- layout editor ----------------------------------------------------
+## DONE and RESET, side by side at the top centre.
+func _edit_rects() -> Array:
+	var s := Game.safe_area(size)
+	var y := s.position.y + 110.0
+	var cx := s.get_center().x
+	return [Rect2(cx - 316.0, y, 300.0, 100.0), Rect2(cx + 16.0, y, 300.0, 100.0)]
+
+
+func _edit_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		edit_done.emit()
+	elif event is InputEventScreenTouch and event.pressed and _edit_touch == -1:
+		var rs := _edit_rects()
+		if rs[0].has_point(event.position):
+			Sfx.play("toggle")
+			edit_done.emit()
+		elif rs[1].has_point(event.position):
+			Sfx.play("toggle")
+			Game.change("button_layout", {})
+		else:
+			var hit := _hit(event.position)
+			if not hit.is_empty():
+				_edit_touch = event.index
+				_edit_a = hit["a"]
+				_edit_grab = event.position - hit["p"]
+				Haptics.play("tap")
+	elif event is InputEventScreenDrag and event.index == _edit_touch:
+		var s := Game.safe_area(size)
+		var k := Game.button_size
+		var layout: Dictionary = Game.button_layout.duplicate()
+		layout[_edit_a] = (s.end - (event.position - _edit_grab)) / k
+		Game.button_layout = layout        # saved on release, not every drag event
+	elif event is InputEventScreenTouch and not event.pressed and event.index == _edit_touch:
+		_edit_touch = -1
+		# store where it was drawn, so a drag past the edge doesn't leave an off-screen offset
+		var b := _button(_edit_a)
+		var layout: Dictionary = Game.button_layout.duplicate()
+		layout[_edit_a] = (Game.safe_area(size).end - b["p"]) / Game.button_size
+		Game.change("button_layout", layout)
+
+
+func _draw_editor() -> void:
+	var c := UI.CORE
+	draw_rect(Rect2(Vector2.ZERO, size), Color(UI.MOSS, 0.94))
+	var s := Game.safe_area(size)
+	UI.text(self, Vector2(s.get_center().x, s.position.y + 40.0), "DRAG A BUTTON TO MOVE IT", 28, c, 600, 0.2, 0)
+	var rs := _edit_rects()
+	for i in 2:
+		draw_rect(rs[i], c if i == 0 else Color(UI.MOSS, 0.8))
+		draw_rect(rs[i], c, false, UI.STROKE)
+		UI.text(self, rs[i].get_center() - Vector2(0, UI.text_height(28) * 0.5), ["DONE", "RESET"][i], 28, UI.MOSS if i == 0 else c, 600, 0.2, 0)
+	# the stick floats, so only its resting spot is shown
+	draw_arc(_stick_home(), STICK_RADIUS, 0, TAU, 64, Color(c, 0.5), UI.STROKE)
+	UI.text(self, _stick_home() - Vector2(0, UI.text_height(18) * 0.5), "STICK", 18, Color(c, 0.6), 600, 0.12, 0)
+	for b in _buttons():
+		var held: bool = _edit_touch != -1 and b["a"] == _edit_a
+		draw_circle(b["p"], b["r"], c if held else Color(UI.MOSS, 0.8))
+		draw_arc(b["p"], b["r"], 0, TAU, 48, c, UI.STROKE)
+		_face(b, b["p"], b["r"], UI.MOSS if held else c)

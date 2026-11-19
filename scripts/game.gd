@@ -10,7 +10,8 @@ var sfx_volume := 1.0        # 0..1, SFX bus, ambience included
 var shake := 1.0             # 0..1, how much of each camera shake lands
 var reduced_motion := false  # no shake, tone rings, trails, punch-ins or screen flashes; hit-stop stays, it's timing
 var haptic_enabled := true
-var button_size := 1.0       # touch buttons: 0.9, 1 or 1.2
+var button_size := 1.15      # touch buttons: 1, 1.15 or 1.35
+var button_layout := {}      # touch button action -> its offset from the safe area's bottom-right, at size 1; unset ones sit at the default
 var prologue_done := false   # PLAY skips the prologue once it has been played (or skipped)
 var met: Array = []          # cells whose warden has said its first words
 
@@ -44,7 +45,8 @@ func _load_settings() -> void:
 	shake = cfg.get_value("motion", "shake", shake)
 	reduced_motion = cfg.get_value("motion", "reduced", reduced_motion)
 	haptic_enabled = cfg.get_value("input", "haptic", haptic_enabled)
-	button_size = cfg.get_value("input", "button_size", button_size)
+	button_size = maxf(cfg.get_value("input", "button_size", button_size), 1.0)   # 0.9 (the old S) is gone
+	button_layout = cfg.get_value("input", "layout", button_layout)
 	prologue_done = cfg.get_value("story", "prologue_done", prologue_done)
 	met = cfg.get_value("story", "met", met)
 
@@ -59,6 +61,7 @@ func _save_settings() -> void:
 	cfg.set_value("input", "button_size", button_size)
 	cfg.set_value("story", "prologue_done", prologue_done)
 	cfg.set_value("story", "met", met)
+	cfg.set_value("input", "layout", button_layout)
 	cfg.save(_CFG_PATH)
 
 ## What the four roles below look like on screen, in the same order. This is the

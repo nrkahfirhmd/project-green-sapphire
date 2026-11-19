@@ -33,10 +33,10 @@ const SHAKE_MAX := 20.0
 ## its name and key, and how many times. "move" counts distance instead.
 const STEPS := [
 	{"a": "move", "name": "MOVE", "key": "WASD", "touch": "LEFT STICK", "need": 1},
-	{"a": "attack_light", "name": "LIGHT ATTACK", "key": "K", "need": 3},
-	{"a": "attack_heavy", "name": "HEAVY ATTACK", "key": "L", "need": 2},
-	{"a": "dodge", "name": "DODGE", "key": "SPACE", "need": 2},
-	{"a": "blink", "name": "BLINK", "key": "I", "need": 1},
+	{"a": "attack_light", "name": "LIGHT ATTACK", "key": "K", "touch": "TAP LIGHT", "need": 3},
+	{"a": "attack_heavy", "name": "HEAVY ATTACK", "key": "L", "touch": "TAP HEAVY", "need": 2},
+	{"a": "dodge", "name": "DODGE", "key": "SPACE", "touch": "TAP DODGE", "need": 2},
+	{"a": "blink", "name": "BLINK", "key": "I", "touch": "TAP BLINK", "need": 1},
 	{"a": "ricochet", "name": "RICOCHET", "key": "HOLD J, AIM WITH ARROWS, LET GO", "touch": "HOLD, DRAG BACK, LET GO", "need": 1},
 ]
 const ULT_STEP := {"a": "ultimate", "name": "ULTIMATE", "key": "O", "need": 1}
@@ -91,6 +91,8 @@ func _ready() -> void:
 	add_child(knight)
 	knight.died.connect(_on_knight_down)
 
+	# buttons arrive one at a time, as each is taught, so each new one is found on its own
+	touch.hidden_buttons = STEPS.map(func(st): return st.a) + [ULT_STEP.a]
 	$UI.add_child(Prompt.new(self))
 	_dlg = Dialogue.new()
 	$UI.add_child(_dlg)
@@ -160,6 +162,7 @@ func _hold(on: bool) -> void:
 func _teach(step: Dictionary) -> void:
 	prompt = step
 	count = 0.0
+	touch.reveal(step.a)
 	touch.highlight = step.a
 	await step_done
 	touch.highlight = ""
@@ -323,6 +326,9 @@ class Prompt extends Control:
 		var txt: String = p.name + ("  ·  " + key if key != "" else "")
 		UI.text(self, Vector2(cx, y), txt, 26, c, 600, 0.12, 0)
 		var dy := y + UI.text_height(26) + 24.0
+		# each new button is the moment to check it fits the thumb
+		if OS.has_feature("mobile") and p.a != "move":
+			UI.text(self, Vector2(cx, dy + 30.0), "TOO SMALL OR IN THE WAY?  PAUSE  >  SETTINGS", 18, c, 600, 0.12, 0)
 		var need: int = p.need
 		if p.a == "move":
 			var bw := 240.0

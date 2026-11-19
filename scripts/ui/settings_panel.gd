@@ -2,6 +2,7 @@ extends Control
 ## Settings, shared by Home and the pause sheet: a framed two-column panel.
 ##   sound (left)     VOLUME, MUSIC, SFX: 10-block meters
 ##   feel (right)     SCREEN SHAKE, REDUCED MOTION, HAPTICS, BUTTON SIZE
+## and, beside BACK, ARRANGE BUTTONS: the touch controls' layout editor.
 ## Values live in the Game autoload and persist to user://settings.cfg.
 
 signal closed
@@ -9,10 +10,12 @@ signal closed
 const UI := preload("res://scripts/ui/ui.gd")
 const W := preload("res://scripts/ui/ui_widgets.gd")
 const Btn := preload("res://scripts/ui/ui_button.gd")
+const Touch := preload("res://scripts/touch_controls.gd")
 const ROW_W := 760.0
 
 var _first: Control
 var _shake: Control
+var _frame: Control
 
 
 func _ready() -> void:
@@ -37,15 +40,33 @@ func _ready() -> void:
 	var back := Btn.new("BACK", Vector2(300, 100), 28)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	back.pressed.connect(func(): closed.emit())
+	var arrange := Btn.new("ARRANGE BUTTONS", Vector2(440, 100), 28)
+	arrange.pressed.connect(_arrange)
+	var bottom := W.hbox(16)
+	bottom.add_child(back)
+	bottom.add_child(arrange)
 	for row in [
 		_first, _shake,
 		Meter.new("MUSIC", "music_volume"), _choice("REDUCED MOTION", "reduced_motion", {"ON": true, "OFF": false}),
 		Meter.new("SFX", "sfx_volume"), _choice("HAPTICS", "haptic_enabled", {"ON": true, "OFF": false}),
-		back, _choice("BUTTON SIZE", "button_size", {"S": 0.9, "M": 1.0, "L": 1.2}),
+		bottom, _choice("BUTTON SIZE", "button_size", {"S": 1.0, "M": 1.15, "L": 1.35}),
 	]:
 		grid.add_child(row)
 
-	add_child(W.top_centred(panel, 90))
+	_frame = W.top_centred(panel, 90)
+	add_child(_frame)
+
+
+func _arrange() -> void:
+	_frame.hide()
+	var ed := Touch.new()
+	ed.editing = true
+	add_child(ed)
+	ed.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	await ed.edit_done
+	ed.queue_free()
+	_frame.show()
+	_first.grab_focus()
 
 
 func open() -> void:
