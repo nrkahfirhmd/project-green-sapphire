@@ -2,14 +2,15 @@ extends Control
 ## Fight HUD (handoff screens 04, 06, 08).
 ##
 ## Drawn: hearts and the run timer at the top left of the safe area; the boss
-## block at the top centre (name, health bar, spare-bar squares); low-HP
+## block at the top centre (name, health bar, bars-left count); low-HP
 ## bands on all four screen edges; the boss-intro band.
 ## Built from Controls: the result screens, so their buttons take touches.
 ##
 ## Boss health is shown as one bar per phase (the boss's phase thresholds
-## split it): the current bar drains, and a spare square empties each time a
-## phase's bar runs out and the bar refills for the next. Damage drains over
-## 0.18 s with a Core trail following after 0.3 s.
+## split it): the current bar drains, and "×N" beside it counts the bars left,
+## this one included. When a bar runs out the next one is simply there, full,
+## and the count drops: a bar growing back from empty read as the boss
+## healing. Damage drains over 0.18 s with a Core trail following after 0.3 s.
 
 signal intro_released            # the intro has started fading; play can begin
 signal continue_pressed
@@ -59,6 +60,9 @@ func _ready() -> void:
 	if boss:
 		_marks = boss.phases() if boss.has_method("phases") else [boss.max_hp / 2] if "max_hp" in boss else []
 		boss.health_changed.connect(_on_b_health)
+		# its first health_changed fired before this connected
+		_b_hp = boss.hp
+		_b_max = boss.max_hp
 
 
 ## Show a short teaching caption for a few seconds (bosses call this).
@@ -120,14 +124,10 @@ func _on_b_health(cur: int, mx: int) -> void:
 	if _trail_tw:
 		_trail_tw.kill()
 	if emptied:
-		# the bar ran out and a spare took over: square pops, bar refills
+		# the bar ran out and the next took over: the count pops, the bar is just full
 		_spare_pop = 1.0
-		_shown = 0.0
-		_trail = 0.0
-		_fill_tw = create_tween()
-		_fill_tw.tween_property(self, "_shown", target, 0.4).set_ease(Tween.EASE_OUT)
-		_trail_tw = create_tween()
-		_trail_tw.tween_property(self, "_trail", target, 0.4).set_ease(Tween.EASE_OUT)
+		_shown = target
+		_trail = target
 		return
 	_fill_tw = create_tween()
 	_fill_tw.tween_property(self, "_shown", target, 0.18).set_ease(Tween.EASE_OUT)
@@ -610,7 +610,7 @@ func _draw() -> void:
 			UI.heart(self, at, Color(c, 0.6), false)
 	UI.text(self, s.position + Vector2(152, 70), UI.fmt_time(elapsed), 24, c, 400)
 
-	# boss block: its name, the bar, and one square per spare bar
+	# boss block: its name, the bar, and how many bars are left
 	var bx := size.x * 0.5 - BAR.x * 0.5 + sin(_jolt * 30.0) * 7.0 * _jolt
 	var by := 20.0
 	UI.text(self, Vector2(size.x * 0.5, by), Game.BOSS_NAMES.get(cell, ""), 20, c, 600, 0.15, 0)
@@ -621,13 +621,10 @@ func _draw() -> void:
 	if _shown > 0.0:
 		_round(Rect2(bar.position, Vector2(BAR.x * _shown, BAR.y)), UI.JADE)
 	_round(bar, Color(0, 0, 0, 0), c)
-	var spares := _spares(_b_hp)
-	for i in _bars() - 1:
-		var sq := Rect2(Vector2(bar.end.x - 24.0 - i * 34.0, bar.end.y + 8.0), Vector2(24, 24))
-		var full := i < spares
-		var pop := 1.0 + 0.3 * _spare_pop if (i == spares and _spare_pop > 0.0) else 1.0
-		sq = sq.grow(12.0 * (pop - 1.0))
-		_round(sq, UI.JADE if full else Color(0, 0, 0, 0), c, 5)
+	if _bars() > 1:
+		var lift := 0.0 if Game.reduced_motion else 8.0 * _spare_pop
+		var cy := bar.get_center().y - UI.text_height(28) * 0.5 - lift
+		UI.text(self, Vector2(bar.end.x + 16.0, cy), "×%d" % (_spares(_b_hp) + 1), 28, UI.JADE if _spare_pop > 0.0 else c, 600, 0.05)
 
 	if _intro >= 0.0:
 		_draw_intro()
