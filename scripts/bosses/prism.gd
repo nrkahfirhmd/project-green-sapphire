@@ -4,12 +4,16 @@ extends "res://scripts/bosses/boss_base.gd"
 ## it leaves on the floor shape the fight: they block movement, bounce a
 ## ricochet, bend its beams, and stop its charge dead.
 ##
-## Six phases, a new one every 10 health, alternating what changes:
+## Three phases, a new one every 14 health:
 ##   1 base: Slam, Spectrum, Charge, Beam
-##   2 adds Shardfall          3 tunes: faster, a fourth Spectrum ring,
-##   4 adds Lens                 longer-lived spikes
-##   6 adds Refraction         5 tunes: faster still, chained attacks,
-##                               beams sweep as they fire
+##   2 adds Shardfall and Lens; faster, a fourth Spectrum ring, longer-lived spikes
+##   3 adds Refraction; faster still, chained attacks, beams sweep as they fire
+##
+## Always hittable, but not a punching bag: FLARE_DMG taken inside
+## FLARE_WINDOW makes it answer with a Flare, so standing still and swinging
+## (heavy spam above all, whose recovery outlasts the Flare's windup) gets
+## punished unless the swing is dodge-cancelled. Stuck after a Charge it can't
+## flare: that is the window to unload.
 ##
 ## Attacks
 ##   Slam: a 100 degree cone, reach 300, leaving a line of spikes along it.
@@ -24,6 +28,7 @@ extends "res://scripts/bosses/boss_base.gd"
 ##   Lens: a burning spot chases the player, a little slower than they run.
 ##   Refraction: mid-floor, spinning, three beams in a rotating fan, each
 ##     bending through every spike it crosses.
+##   Flare (the answer to being crowded): a quick burst all round, FLARE_R.
 ##
 ## global_position is the Prism's point on the floor; the body floats LIFT
 ## above it. Timer: the eye.
@@ -32,7 +37,7 @@ enum S { IDLE, TELEGRAPH, ATTACK, RECOVER, STUCK }
 
 const LIFT := Vector2(0, -104)
 const RADIUS := 46.0
-const MOVE := 70.0
+const MOVE := 110.0
 const TOUCH_CD := 0.6
 const CONTACT_CD := 0.8
 const SPIKE_R := 22.0
@@ -47,7 +52,11 @@ const ATK := {
 	"shardfall":  {"windup": 0.9, "active": 0.2, "recover": 0.7},
 	"lens":       {"windup": 0.7, "active": 3.0, "recover": 0.9},
 	"refraction": {"windup": 1.0, "active": 4.0, "recover": 1.0},
+	"flare":      {"windup": 0.45, "active": 0.12, "recover": 0.5},
 }
+const FLARE_DMG := 6              # two heavies, or six lights...
+const FLARE_WINDOW := 2.5         # ...landed within this many seconds
+const FLARE_R := 230.0            # past a heavy's reach from the boss
 const SLAM_REACH := 300.0
 const SLAM_ARC := 100.0
 const SLAM_SPIKES := [100.0, 170.0, 240.0, 310.0]
@@ -74,7 +83,7 @@ var kind := ""
 var _timer := 0.0
 var _total := 1.0
 var _elapsed := 0.0
-var _wait := 1.6
+var _wait := 1.0
 var _aim := Vector2.DOWN
 var _hit_done := false
 var _touch := 0.0
@@ -90,19 +99,20 @@ var _travel := 0.0
 var _spots: Array[Vector2] = []
 var _lens := Vector2.ZERO
 var _fan := 0.0
+var _hits: Array = []            # [time, damage] of recent hits, for the Flare
 
 
 func _ready() -> void:
-	max_hp = 60
-	phase_hp = [50, 40, 30, 20, 10]
+	max_hp = 42
+	phase_hp = [28, 14]
 	super()
 
 
-## Odd phases retune: 1-2 base, 3-4 faster, 5-6 fastest with chains and sweeps.
+## Each phase retunes: 1 base, 2 faster, 3 fastest with chains and sweeps.
 func _tune() -> Dictionary:
-	if phase >= 5:
-		return {"speed": 0.72, "rings": 4, "spike_life": 5.0, "chain": 0.5, "sweep": 0.6}
 	if phase >= 3:
+		return {"speed": 0.72, "rings": 4, "spike_life": 5.0, "chain": 0.5, "sweep": 0.6}
+	if phase >= 2:
 		return {"speed": 0.85, "rings": 4, "spike_life": 5.0, "chain": 0.0, "sweep": 0.0}
 	return {"speed": 1.0, "rings": 3, "spike_life": 4.0, "chain": 0.0, "sweep": 0.0}
 
@@ -231,7 +241,7 @@ func _think(delta: float) -> void:
 					_begin(_pick())
 				else:
 					state = S.IDLE
-					_wait = spd(randf_range(0.9, 1.6))
+					_wait = spd(randf_range(0.5, 1.1))
 					if randf() < float(_tune()["chain"]):
 						_chain_left = 1
 
@@ -269,15 +279,28 @@ func _cancel() -> void:
 	_chain_left = 0
 	_wait = 0.5
 	_spots.clear()
+	_hits.clear()
+
+
+## Crowded and hit too often: drop whatever it was winding up and flare.
+func _on_hit(amount: int) -> void:
+	_hits.append([_t, amount])
+	_hits = _hits.filter(func(h): return _t - float(h[0]) <= FLARE_WINDOW)
+	var taken := 0
+	for h in _hits:
+		taken += int(h[1])
+	if taken >= FLARE_DMG and state != S.ATTACK and state != S.STUCK and kind != "flare":
+		_hits.clear()
+		_chain_left = 0
+		_spots.clear()
+		_begin("flare")
 
 
 func _pick() -> String:
 	var pool := ["slam", "spectrum", "charge", "beam"]
 	if phase >= 2:
-		pool.append("shardfall")
-	if phase >= 4:
-		pool.append("lens")
-	if phase >= 6:
+		pool.append_array(["shardfall", "lens"])
+	if phase >= 3:
 		pool.append_array(["refraction", "refraction"])
 	return pool.pick_random()
 
@@ -313,7 +336,7 @@ func _begin(k: String) -> void:
 
 func _activate() -> void:
 	state = S.ATTACK
-	sfx(kind)
+	sfx("slam" if kind == "flare" else kind)
 	_elapsed = 0.0
 	_travel = 0.0
 	_request_shake(6.0)
@@ -328,6 +351,11 @@ func _activate() -> void:
 				_spike(global_position + _aim * d)
 		"charge":
 			velocity = _aim * CHARGE_SPEED
+		"flare":
+			if global_position.distance_to(player_pos()) <= FLARE_R:
+				hurt_player(1)
+			_burst(global_position, Game.PALE_JADE, 20)
+			_request_shake(12.0)
 		"shardfall":
 			for sp in _spots:
 				_burst(sp, Game.SAPPHIRE_CORE, 10)
@@ -468,7 +496,7 @@ func _draw() -> void:
 	# a new fracture with every phase: the gem visibly breaking down
 	var cracks := [[Vector2(-40, -32), Vector2(4, 22)], [Vector2(4, 22), Vector2(34, -16)], [Vector2(-14, -48), Vector2(-2, -12)],
 		[Vector2(20, -48), Vector2(10, 4)], [Vector2(-30, 10), Vector2(-4, 60)]]
-	for i in mini(phase - 1, cracks.size()):
+	for i in mini((phase - 1) * 2, cracks.size()):
 		draw_line(cracks[i][0], cracks[i][1], Game.DEEP_MOSS, 3.0)
 	var e := 16.0 + 5.0 * eye_t
 	var lid := 1.0
@@ -514,6 +542,11 @@ func _draw_attack() -> void:
 		"lens":
 			draw_line(LIFT + Vector2(0, -22), L(_lens), Color(Game.PALE_JADE, 0.35), 3.0)
 			draw_circle(L(_lens), LENS_R * (0.5 + 0.5 * eye_t if tele else 1.0), col if tele else Color(Game.PALE_JADE, 0.6))
+		"flare":
+			if tele:
+				draw_circle(Vector2.ZERO, FLARE_R * (0.4 + 0.6 * eye_t), col)
+			else:
+				draw_arc(Vector2.ZERO, FLARE_R, 0, TAU, 64, Game.PALE_JADE, 8.0)
 		"refraction":
 			for sg in _fan_beams():
 				draw_line(L(sg[0]), L(sg[1]), col if tele else Game.PALE_JADE, 2.0 if tele else BEAM_W)
