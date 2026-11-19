@@ -1,19 +1,21 @@
 extends Node
-## Post effects on the ASCII pass. They live here, not in a scene, so a
+## Post effects on the dither pass. They live here, not in a scene, so a
 ## dissolve can run across a scene change; every frame the state is pushed to
-## each ASCII pass on screen (group "ascii"). All of them work on which glyph a
-## cell shows, never on colour: see the uniforms at the top of ascii.gdshader.
+## each dither pass on screen (group "dither"). All of them move a pixel's tone
+## or threshold, never its colour: see the uniforms at the top of dither.gdshader.
+## A last pass on top of everything (palette_snap.gdshader) holds the whole
+## screen, HUD included, to the four colours.
 ##
-##   shock(at)      a ring of glyph density running out from a world point
-##   scramble(at)   cells round a world point flicker through random glyphs
-##   dissolve(to)   every cell thins down the ramp to nothing (1) or back (0)
-##   low health     the screen edges breathe into the shadow green, read off
+##   shock(at)      a ring of tone running out from a world point
+##   scramble(at)   blocks round a world point flicker through random tones
+##   dissolve(to)   every block dithers away to nothing (1) or back (0)
+##   low health     the screen edges breathe into solid dark, read off
 ##                  the player each frame
-##   phosphor       bright glyphs linger a few frames, always on
+##   phosphor       bright pixels linger a few frames, always on
 
 const SHOCK_TIME := 0.75
 const HIT_TIME := 0.18
-# How much of last frame's bright glyphs each frame keeps; 0 turns phosphor
+# The odds each of last frame's bright pixels survives a frame; 0 turns phosphor
 # off. It reads the whole screen back once a frame: the one effect with a real
 # cost, so it is the first to cut if a phone struggles.
 const GLOW := 0.55
@@ -29,6 +31,7 @@ var _pulse := 0.0
 var _t := 0.0
 var _trail: SubViewport          # holds last frame's finished screen for the phosphor
 var _copy: TextureRect
+var _screen := PackedVector3Array()
 
 
 func _ready() -> void:
@@ -43,16 +46,35 @@ func _ready() -> void:
 	_trail.add_child(_copy)
 	add_child(_trail)
 
+	var top := CanvasLayer.new()
+	top.layer = 110                    # over the iris too
+	var snap := ColorRect.new()
+	_screen.resize(4)
+	for i in 4:
+		var c: Color = Game.SCREEN_PALETTE[i]
+		_screen[i] = Vector3(c.r, c.g, c.b)
+	snap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	snap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	snap.material = ShaderMaterial.new()
+	snap.material.shader = preload("res://shaders/palette_snap.gdshader")
+	snap.material.set_shader_parameter("screen_palette", _screen)
+	top.add_child(snap)
+	add_child(top)
+
 
 ## `size` is the ring's final radius, in screen heights.
 func shock(at: Vector2, size := 0.7) -> void:
+	if Game.reduced_motion:
+		return
 	_shock_at = _uv(at)
 	_shock_t = 0.0
 	_shock_r = size
 
 
-## `radius` in screen heights; `k` 0..1, how many of the cells flicker.
+## `radius` in screen heights; `k` 0..1, how many of the blocks flicker.
 func scramble(at: Vector2, radius := 0.13, k := 1.0) -> void:
+	if Game.reduced_motion:
+		return
 	_hit_at = _uv(at)
 	_hit_r = radius
 	_hit_k = maxf(_hit_k, k)
@@ -91,11 +113,12 @@ func _process(delta: float) -> void:
 		_trail.size = px
 		_copy.size = Vector2(px)
 
-	for n in get_tree().get_nodes_in_group("ascii"):
+	for n in get_tree().get_nodes_in_group("dither"):
 		var m: ShaderMaterial = n.material
 		if not m.has_meta("post"):
 			m.set_meta("post", true)
 			m.set_shader_parameter("prev_tex", _trail.get_texture())
+			m.set_shader_parameter("screen_palette", _screen)
 		m.set_shader_parameter("shock_at", _shock_at)
 		m.set_shader_parameter("shock_t", _shock_t)
 		m.set_shader_parameter("shock_r", _shock_r)
@@ -103,5 +126,5 @@ func _process(delta: float) -> void:
 		m.set_shader_parameter("hit_k", _hit_k)
 		m.set_shader_parameter("hit_r", _hit_r)
 		m.set_shader_parameter("fade", fade)
-		m.set_shader_parameter("pulse", _pulse * (0.55 + 0.45 * sin(_t * rate * TAU)))
-		m.set_shader_parameter("glow_k", GLOW)
+		m.set_shader_parameter("pulse", _pulse * (1.0 if Game.reduced_motion else 0.55 + 0.45 * sin(_t * rate * TAU)))
+		m.set_shader_parameter("glow_k", 0.0 if Game.reduced_motion else GLOW)

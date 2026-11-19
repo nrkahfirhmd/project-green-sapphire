@@ -171,7 +171,7 @@ func _puppet() -> CharacterBody2D:
 	p.remove_from_group("player")
 	p.set_physics_process(false)
 	p.scale = Vector2(SIZE, SIZE)
-	p.body_color = Game.PALE_JADE
+	p.body_color = Game.DEEP_MOSS
 	return p
 
 
@@ -341,7 +341,7 @@ func _physics_process(delta: float) -> void:
 	var face := (player_pos() - global_position).normalized()
 	var moving := velocity.length() > 20.0
 	_pose(real, global_position + kick(), face if state == S.IDLE else _aim, delta, moving)
-	real.body_color = Game.SAPPHIRE_CORE if _flash > 0.0 else Game.PALE_JADE
+	real.body_color = Game.PALE_JADE if _flash > 0.0 else Game.DEEP_MOSS
 	for sh in _shards:
 		_pose(sh.pup, sh.pup.global_position, (player_pos() - sh.pup.global_position).normalized() if state == S.IDLE else _aim, delta, moving)
 	if dead:

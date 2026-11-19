@@ -1,15 +1,15 @@
 extends RefCounted
 ## Paint: light and air for the scenery, shared by every room and the jail.
 ##
-## Under the ASCII pass a smooth alpha ramp comes out as a ramp of glyph
+## Under the dither pass a smooth alpha ramp comes out as a ramp of stipple
 ## density, so gradients are how the scenery gets depth and light: a shaft of
 ## light is a fan of specks thickening towards its source, a glow is a halo of
-## specks round a flame, a vignette thins the glyphs towards the screen edge.
+## specks round a flame, a vignette thins the stipple towards the screen edge.
 ## Everything here is Sapphire Core over Deep Moss, or Deep Moss on top to
 ## darken; Pale Jade stays reserved for telegraphs.
 
-const C := Color("69A062")     # Game.SAPPHIRE_CORE
-const M := Color("3B4939")     # Game.DEEP_MOSS
+const C := Color("8BAE66")     # Game.SAPPHIRE_CORE
+const M := Color("1B211A")     # Game.DEEP_MOSS
 
 
 ## A polygon fading from alpha `a0` at `from` to `a1` at `to` (any two points

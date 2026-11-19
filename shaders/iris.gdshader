@@ -5,8 +5,8 @@ shader_type canvas_item;
 
 uniform float radius = 1.5;                 // in screen heights
 uniform vec2 centre = vec2(0.5, 0.5);       // in screen UV
-uniform vec4 moss : source_color = vec4(0.231, 0.286, 0.224, 1.0);
-uniform vec4 core : source_color = vec4(0.412, 0.627, 0.384, 1.0);
+uniform vec4 moss : source_color = vec4(0.10588, 0.12941, 0.10196, 1.0);
+uniform vec4 core : source_color = vec4(0.54510, 0.68235, 0.40000, 1.0);
 
 void fragment() {
 	vec2 d = SCREEN_UV - centre;

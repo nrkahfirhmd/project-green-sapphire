@@ -24,29 +24,29 @@ func _ready() -> void:
 	Sfx.ambience("home")
 	Music.play("title")
 
-	# the jail at night, through the same ASCII pass as the game; the menu
+	# the jail at night, through the same dither pass as the game; the menu
 	# goes on top of the pass, so it stays crisp
 	add_child(Backdrop.new())
-	var ascii := ColorRect.new()
-	ascii.name = "Ascii"
-	ascii.add_to_group("ascii")
-	ascii.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ascii.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ascii.material = ShaderMaterial.new()
-	ascii.material.shader = preload("res://shaders/ascii.gdshader")
-	add_child(ascii)
+	var dither := ColorRect.new()
+	dither.name = "Dither"
+	dither.add_to_group("dither")
+	dither.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dither.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dither.material = ShaderMaterial.new()
+	dither.material.shader = preload("res://shaders/dither.gdshader")
+	add_child(dither)
 
 	var col := W.vbox(28)
 	# caption flanked by two lines
 	var cap := W.hbox(24, BoxContainer.ALIGNMENT_CENTER)
 	cap.add_child(W.Shape.new(Vector2(120, 26), _line))
-	cap.add_child(W.Text.new("A JAIL OF FIVE CELLS", 20, 400, 0.4, Color(UI.CORE, 0.75)))
+	cap.add_child(W.Text.new("PRISONER OF THE MIND", 24, 600, 0.4, UI.CORE))
 	cap.add_child(W.Shape.new(Vector2(120, 26), _line))
 	col.add_child(cap)
 	# framed title
 	var title := W.Frame.new(28, 64)
 	title.fill = Color(0, 0, 0, 0)
-	title.add_child(W.Text.new("GREEN SAPPHIRE", 112, 600, 0.2))
+	title.add_child(W.Text.new("GREEN SAPPHIRE", 112, 600, 0.2, UI.JADE))
 	var tc := CenterContainer.new()
 	tc.add_child(title)
 	col.add_child(tc)
@@ -98,8 +98,9 @@ func _ready() -> void:
 		tw.tween_interval(0.1 + 0.09 * i)
 		tw.tween_property(row, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
 		i += 1
-	_menu.offset_top += 16.0
-	create_tween().tween_property(_menu, "offset_top", _menu.offset_top - 16.0, 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	if not Game.reduced_motion:
+		_menu.offset_top += 16.0
+		create_tween().tween_property(_menu, "offset_top", _menu.offset_top - 16.0, 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 func _process(delta: float) -> void:
@@ -120,5 +121,5 @@ func _open_settings(on: bool) -> void:
 
 
 func _line(c: Control, s: Vector2) -> void:
-	c.draw_rect(Rect2(0, s.y * 0.5 - 1.0, s.x, 2.0), Color(UI.CORE, 0.75))
+	c.draw_rect(Rect2(0, s.y * 0.5 - 1.0, s.x, 2.0), UI.CORE)
 

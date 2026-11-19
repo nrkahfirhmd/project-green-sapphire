@@ -190,7 +190,6 @@ func _spawn(spec: Dictionary) -> void:
 	env.name = "Environment"
 	env.set_script(load(spec["env"]))
 	add_child(env)
-	$Ascii/Screen.material.set_shader_parameter("black_void", spec["boss"].ends_with("mirror.gd"))
 
 
 ## The floor's outline inside arena_rect. "gem" is the Prism's ten irregular
@@ -261,13 +260,15 @@ func clamp_to_arena(p: Vector2) -> Vector2:
 
 ## `amount` is the old pixel scale (2 a tap, 24 the most); it's felt too.
 func add_shake(amount: float) -> void:
-	_trauma = minf(1.0, _trauma + amount / 30.0)
+	_trauma = minf(1.0, _trauma + amount / 30.0 * Game.shake)
 	Haptics.impact(amount / 20.0)
 	Sfx.impact(amount / 20.0)
 
 
 # camera punch-in: quick zoom spike, used on big hits and transitions
 func punch(zoom_scale := 1.08, t_in := 0.07, t_out := 0.20) -> void:
+	if Game.reduced_motion:
+		return
 	if _cam_tw and _cam_tw.is_valid():
 		_cam_tw.kill()
 	camera.zoom = Vector2.ONE
@@ -376,11 +377,9 @@ func _finish(win: bool) -> void:
 
 
 func _draw() -> void:
-	# arena floor + border. The floor is lifted a little off the pure Deep Moss
-	# clear colour so the ground shadows under both fighters have something to
-	# darken; still only the two locked greens, mixed.
-	draw_colored_polygon(arena_poly, Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13))
-	draw_polyline(arena_poly + PackedVector2Array([arena_poly[0]]), Color(Game.SAPPHIRE_CORE, 0.5), 2.0)
+	# the fight's stage: a flat plate of Game.FLOOR, the one big bright shape on
+	# screen, so shadows, the dark bosses and the cream player all read against it
+	draw_colored_polygon(arena_poly, Game.FLOOR)
 
 	# the dropped sapphire: a Pale Jade diamond pulsing 1 <-> 1.25 every 0.8 s
 	# and turning slowly (its width breathes like a gem spinning) over its

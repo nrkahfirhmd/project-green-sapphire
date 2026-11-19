@@ -6,8 +6,8 @@ extends Node2D
 ## ground between the rim and the screen edge, and dust drifting up through it.
 ##
 ## Sapphire Core and Deep Moss only. Pale Jade is reserved for telegraphs, so
-## nothing in the scenery can ever read as "look now". Under the ASCII shader
-## alpha becomes glyph density: below 0.2 a tone comes out as scattered specks
+## nothing in the scenery can ever read as "look now". Under the dither shader
+## alpha becomes stipple density: below 0.2 a tone comes out as scattered specks
 ## (floor tiles, the far wall), 0.2-0.5 as light '- = +' texture, and only the
 ## crystals go denser. The boss and telegraphs stay the densest things on screen.
 ## Light: a crack in the ceiling drops one beam onto a geode of giant prisms
@@ -319,7 +319,6 @@ func _draw() -> void:
 			Color(base, 0.36 if i % 2 == 0 else 0.24))
 		draw_line(_poly[i], _rim[i], Game.DEEP_MOSS, 2.0)
 	draw_polyline(_rim + PackedVector2Array([_rim[0]]), Game.DEEP_MOSS, 2.0)
-	draw_colored_polygon(_poly, Color(Game.DEEP_MOSS, 0.6))
 	for t in _tiles:
 		draw_colored_polygon(t.pts, Color(base, t.a))
 	for c in _cracks:

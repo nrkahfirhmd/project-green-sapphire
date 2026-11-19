@@ -51,11 +51,11 @@ const VOICES := {
 ## onset: the haptic + sound that open the line ("" for none).
 const MOODS := {
 	"calm": {"cps": 40.0, "every": 2, "pitch": 1.0, "shake": 0.0, "tremble": 0.0, "wave": 0.0, "sink": 0.0, "alpha": 1.0, "jolt": 0.0, "frame": 2.0, "onset": ""},
-	"sad": {"cps": 22.0, "every": 3, "pitch": 0.85, "shake": 0.0, "tremble": 0.0, "wave": 1.6, "sink": 4.0, "alpha": 0.8, "jolt": 0.0, "frame": 2.0, "onset": "mood_sad"},
+	"sad": {"cps": 22.0, "every": 3, "pitch": 0.85, "shake": 0.0, "tremble": 0.0, "wave": 1.6, "sink": 4.0, "alpha": 1.0, "jolt": 0.0, "frame": 2.0, "onset": "mood_sad"},
 	"fear": {"cps": 50.0, "every": 1, "pitch": 1.14, "shake": 0.0, "tremble": 1.6, "wave": 0.0, "sink": 0.0, "alpha": 1.0, "jolt": 0.25, "frame": 2.0, "onset": "mood_fear"},
 	"anger": {"cps": 58.0, "every": 1, "pitch": 0.9, "shake": 2.6, "tremble": 0.0, "wave": 0.0, "sink": 0.0, "alpha": 1.0, "jolt": 1.0, "frame": 3.0, "onset": "mood_anger"},
 	"resolve": {"cps": 32.0, "every": 2, "pitch": 0.97, "shake": 0.0, "tremble": 0.0, "wave": 0.0, "sink": 0.0, "alpha": 1.0, "jolt": 0.0, "frame": 4.0, "onset": "mood_resolve"},
-	"whisper": {"cps": 24.0, "every": 4, "pitch": 1.2, "shake": 0.0, "tremble": 0.0, "wave": 0.6, "sink": 0.0, "alpha": 0.55, "jolt": 0.0, "frame": 2.0, "onset": ""},
+	"whisper": {"cps": 24.0, "every": 4, "pitch": 1.2, "shake": 0.0, "tremble": 0.0, "wave": 0.6, "sink": 0.0, "alpha": 1.0, "jolt": 0.0, "frame": 2.0, "onset": ""},
 }
 ## Extra wait after a letter, seconds.
 const PAUSES := {",": 0.14, ";": 0.18, ".": 0.32, "!": 0.32, "?": 0.32, "—": 0.24}
@@ -242,7 +242,6 @@ func _draw() -> void:
 	# the letters: each rises into place as it appears, then moves with the mood
 	var f := UI.font(PX, 400)
 	var origin := r.position + PAD + Vector2(0, f.get_ascent(PX) - 8.0)
-	var thought := _who == ""
 	for i in _shown:
 		var g: Dictionary = _glyphs[i]
 		if g.ch == " ":
@@ -258,7 +257,7 @@ func _draw() -> void:
 			off.y += sin(_clock * 2.4 - i * 0.35) * _mood.wave
 		if _mood.sink > 0.0:
 			off.y += _mood.sink * clampf(age / 1.5, 0.0, 1.0)     # the words settle lower as they hang there
-		var col := Color(UI.CORE, a * k * _mood.alpha * (0.78 if thought else 1.0))
+		var col := Color(UI.CORE, a * k * _mood.alpha)
 		draw_char(f, origin + g.at + off, g.ch, PX, col)
 
 	# done typing: a diamond bobbing in the corner says "tap to go on"

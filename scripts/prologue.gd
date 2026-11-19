@@ -7,7 +7,7 @@ extends Node2D
 ##
 ## The room is lit only where someone stands: a soft pool under the player
 ## and one under the knight, laid down as stacked faint ellipses. Past them
-## the floor stays black, which the ASCII pass turns deep green.
+## the floor stays black, which the dither pass turns deep green.
 ##
 ## A step waits on what the player actually does (player.state changing),
 ## not on keys, so keyboard and touch both count. While anyone talks
@@ -244,12 +244,14 @@ func clamp_to_arena(p: Vector2) -> Vector2:
 
 
 func add_shake(amount: float) -> void:
-	_trauma = minf(1.0, _trauma + amount / 30.0)
+	_trauma = minf(1.0, _trauma + amount / 30.0 * Game.shake)
 	Haptics.impact(amount / 20.0)
 	Sfx.impact(amount / 20.0)
 
 
 func punch(zoom_scale := 1.08, t_in := 0.07, t_out := 0.20) -> void:
+	if Game.reduced_motion:
+		return
 	if _cam_tw and _cam_tw.is_valid():
 		_cam_tw.kill()
 	camera.zoom = Vector2.ONE
@@ -278,7 +280,7 @@ func _draw() -> void:
 
 ## A pool of light on the floor: stacked faint ellipses, brightest at the feet.
 func _pool(at: Vector2, k: float) -> void:
-	var col := Color(Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.13), 0.2 * k)
+	var col := Color(Game.FLOOR, 0.35 * k)
 	for i in 6:
 		var r := LIGHT_R * (1.0 - i / 6.0)
 		draw_colored_polygon(Transform2D(0.0, at) * Game.ellipse(r, r * 0.5, 32), col)

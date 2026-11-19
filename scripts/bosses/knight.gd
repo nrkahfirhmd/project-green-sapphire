@@ -38,7 +38,7 @@ var _timer := 0.0
 var _total := 1.0
 var _cd := 1.2                   # until the next thrust
 var _again := false              # phase 2's second thrust is queued
-var _look_col := Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, 0.55)   # a dimmer twin of the player
+var _look_col := Game.SAPPHIRE_CORE   # a dimmer twin of the player
 
 
 func _ready() -> void:

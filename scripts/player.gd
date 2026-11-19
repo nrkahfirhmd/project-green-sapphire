@@ -1,5 +1,6 @@
 extends CharacterBody2D
-## The Swordsman, armed with a rapier. Move (8-dir), dodge dash (i-frames +
+## The Squire, in a helm a size too big, with a cape and a wooden practice
+## sword: the fallen knight's younger self. Move (8-dir), dodge dash (i-frames +
 ## afterimage trail), and two thrusts on one shared system: light is a quick
 ## jab, heavy a slow lunge that reaches further and covers a wider strip.
 ##
@@ -128,7 +129,7 @@ var _rehit := 0.0
 var _phase_i := 0            # blink: 0 windup, 1 recover; ult: slashes done
 var _ult_base := 0.0
 var _streaks: Array = []     # [{a:Vector2, b:Vector2, age:float}] slash lines on the floor
-var body_color := Game.SAPPHIRE_CORE   # the Mirror boss reuses this rig in Pale Jade
+var body_color := Game.PALE_JADE   # the Mirror boss reuses this rig in Pale Jade
 var _look := Vector2.DOWN    # the facing the rig is drawn with; turns smoothly toward facing
 var _lean := 0.0             # tilt into the run, radians
 var _step := 0.0             # last walk-cycle sign, for footfalls
@@ -794,7 +795,7 @@ func _extension() -> float:
 
 
 func _draw() -> void:
-	var col := Game.PALE_JADE if _flash > 0.0 else body_color
+	var col := Game.DEEP_MOSS if _flash > 0.0 else body_color
 
 	# afterimages and the ground shadow both lie on the floor, so they are
 	# drawn outside the body transform
@@ -850,7 +851,7 @@ func _draw() -> void:
 	if _walk_amp > 0.0:
 		offset.y = -absf(sin(_walk)) * 3.0 * RIG * _walk_amp
 	if _flash > 0.0:
-		var j := _flash * 14.0
+		var j := 0.0 if Game.reduced_motion else _flash * 14.0
 		offset += Vector2(randf_range(-j, j), randf_range(-j, j))
 	var spin := _lean
 	if _dead_t >= 0.0:
@@ -873,6 +874,15 @@ func _draw() -> void:
 		spin += _dash_lean()
 	draw_set_transform(offset, spin, sq)
 
+	# short cape off the shoulders; its hem trails behind, further on the move.
+	# From behind it hangs over the back, so it is drawn after the body then
+	var hem := -_look.x * (3.0 + 5.0 * _walk_amp + 6.0 * _dash) * RIG
+	var cape := PackedVector2Array([Vector2(-6, -33) * RIG, Vector2(6, -33) * RIG,
+		Vector2(7 * RIG + hem, -6 * RIG), Vector2(-7 * RIG + hem, -6 * RIG)])
+	var behind := _look.y < -0.3
+	if not behind:
+		_poly_o(cape, col)
+
 	# legs step along the travel direction; in a dash they hold a lunge, the
 	# lead foot reaching ahead and the back one trailing off the floor
 	var stride := sin(_walk) * 6.0 * RIG * _walk_amp
@@ -886,22 +896,31 @@ func _draw() -> void:
 	_capsule_o(Vector2(4.5 * RIG, -15 * RIG), foot_b, 3.5 * RIG, col)
 
 	# walking away from the camera puts the sword arm behind the body
-	var behind := _look.y < -0.3
 	if behind:
 		_draw_sword(col)
 
 	_capsule_o(Vector2(-7.5 * RIG * _face_x, -29 * RIG),
 		Vector2(-9.5 * RIG * _face_x, -14 * RIG), 3.2 * RIG, col)
 	_capsule_o(Vector2(0, -32 * RIG), Vector2(0, -14 * RIG), 8 * RIG, col)
-	_circle_o(Vector2(0, -39 * RIG), 6.5 * RIG, col)
+	draw_line(Vector2(-7.8, -19) * RIG, Vector2(7.8, -19) * RIG, Game.DEEP_MOSS, 2.0 * RIG)
+	if behind:
+		_poly_o(cape, col)
 
-	# eyes exist only on the side of the head the camera can actually see
+	# the squire's helm, a size too big, with a plume that sweeps back and
+	# lags the walk
+	var sway := -_face_x * (sin(_walk) * 1.5 * _walk_amp + 4.0 * _dash) * RIG
+	var plume := PackedVector2Array()
+	for p in [Vector2(2, -48), Vector2(1, -55), Vector2(-6, -58), Vector2(-13, -55), Vector2(-15, -45), Vector2(-9, -50)]:
+		var w: float = clampf(-p.x / 15.0, 0.0, 1.0)   # the tail sways, the root stays on the helm
+		plume.append(Vector2(p.x * _face_x * RIG + sway * w, p.y * RIG))
+	_poly_o(plume, Game.DEEP_MOSS if _flash > 0.0 else Game.SAPPHIRE_CORE)
+	_capsule_o(Vector2(0, -42 * RIG), Vector2(0, -38 * RIG), 8 * RIG, col)
+
+	# the visor slit is the only face, so it carries the facing read
 	if _look.y > -0.3 and _dead_t < 0.0:
-		var ey := -40.0 * RIG + _look.y * 1.5 * RIG
-		var ex := 2.4 * RIG
-		var cx := _face_x * 1.4 * RIG
-		draw_circle(Vector2(cx - ex, ey), 1.4 * RIG, Game.DEEP_MOSS)
-		draw_circle(Vector2(cx + ex, ey), 1.4 * RIG, Game.DEEP_MOSS)
+		var vy := -40.5 * RIG + _look.y * 1.5 * RIG
+		var vx := _look.x * 3.5 * RIG
+		draw_line(Vector2(vx - 4.5 * RIG, vy), Vector2(vx + 4.5 * RIG, vy), Game.DEEP_MOSS, 2.4 * RIG)
 
 	if not behind:
 		_draw_sword(col)
@@ -909,7 +928,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## Sword arm and rapier. At rest the blade is held en garde, angled a little
+## Sword arm and practice sword. At rest the blade is held en garde, angled a little
 ## off facing; a thrust pulls the arm back, then drives hand and blade straight
 ## along facing. Worked out on the ground plane and projected, so a thrust
 ## toward the camera reads long and one away from it reads short.
@@ -927,20 +946,21 @@ func _draw_sword(col: Color) -> void:
 	var hand := shoulder + _project(gdir * (10.0 + 9.0 * ext) * RIG)
 	_capsule_o(shoulder, hand, 3.2 * RIG, col)
 
-	# a long thin blade from a small cup guard; it grows a little on the thrust
+	# a wooden practice sword: broad, blunt, crossguarded, but as long as the
+	# thrust's reach so it still reads true; it grows a little on the thrust
 	var length := (46.0 + 16.0 * maxf(ext, 0.0)) * RIG
 	var tip := hand + _project(gdir * length)
 	var sdir := (tip - hand).normalized()
 	var nrm := Vector2(-sdir.y, sdir.x)
-	var hw := 1.8 * RIG
+	var hw := 2.8 * RIG
 	var base := hand + sdir * 2.0 * RIG
-	draw_colored_polygon(PackedVector2Array([base - nrm * (hw + OUTLINE), base + nrm * (hw + OUTLINE), tip + sdir * OUTLINE]), Game.DEEP_MOSS)
-	draw_colored_polygon(PackedVector2Array([base - nrm * hw, base + nrm * hw, tip]), Game.PALE_JADE)
+	_poly_o(PackedVector2Array([base - nrm * hw, base + nrm * hw, tip + nrm * hw * 0.5,
+		tip + sdir * RIG, tip - nrm * hw * 0.5]), Game.PALE_JADE)
 	var butt := hand - sdir * 5.0 * RIG
 	_capsule(butt, hand, 1.6 * RIG + OUTLINE, col)
 	_capsule(butt, hand, 1.6 * RIG, Game.DEEP_MOSS)
-	draw_circle(hand + sdir * 1.5 * RIG, 3.6 * RIG + OUTLINE * 0.5, Game.DEEP_MOSS)
-	draw_circle(hand + sdir * 1.5 * RIG, 3.6 * RIG, col)
+	draw_circle(butt, 2.4 * RIG, Game.DEEP_MOSS)
+	_capsule_o(base - nrm * 5.0 * RIG, base + nrm * 5.0 * RIG, 1.1 * RIG, col)
 
 	# a heavy thrust gathers: a four-point glint grows on the tip as it winds up
 	if state == State.ATTACK and _atk_name == "heavy" and _atk_phase == "windup":
@@ -974,6 +994,12 @@ func _capsule_o(a: Vector2, b: Vector2, r: float, col: Color) -> void:
 	_capsule(a, b, r, col)
 
 
-func _circle_o(c: Vector2, r: float, col: Color) -> void:
-	draw_circle(c, r + OUTLINE, Game.DEEP_MOSS)
-	draw_circle(c, r, col)
+## Filled polygon on a Deep Moss backing: a closed outline twice OUTLINE wide,
+## half of it then covered by the fill, round at the corners.
+func _poly_o(pts: PackedVector2Array, col: Color) -> void:
+	var ring := pts.duplicate()
+	ring.append(pts[0])
+	draw_polyline(ring, Game.DEEP_MOSS, OUTLINE * 2.0)
+	for p in pts:
+		draw_circle(p, OUTLINE, Game.DEEP_MOSS)
+	draw_colored_polygon(pts, col)

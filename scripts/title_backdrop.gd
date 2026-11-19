@@ -3,10 +3,10 @@ extends Control
 ## flank the menu, two to a side, each with its boss's silhouette behind the
 ## bars and an eye blinking in the dark; gate V stands behind the buttons.
 ## Moonlight falls from a barred window high in the wall onto the lone
-## prisoner, who stands with their back to us, facing the gate.
+## squire, who stands with their back to us, facing the gate.
 ##
-## Drawn in the palette like every room, so the ASCII pass laid over it turns
-## it into the same glyph world as the game. The menu sits on top, untouched.
+## Drawn in the palette like every room, so the dither pass laid over it turns
+## it into the same dithered world as the game. The menu sits on top, untouched.
 
 const P := preload("res://scripts/paint.gd")
 const SEED := 11
@@ -73,6 +73,7 @@ func _draw() -> void:
 	draw_line(Vector2(0, fy), Vector2(s.x, fy), Color(c, 0.5), 3.0)
 
 	# floor: flagstones running away to the gate
+	draw_rect(Rect2(0, fy, s.x, s.y - fy), Game.FLOOR)
 	P.vband(self, Rect2(0, fy, s.x, s.y - fy), 0.2, 0.08)
 	var vanish := Vector2(mid, fy - 700.0)
 	for i in range(-9, 10):
@@ -128,23 +129,46 @@ func _draw() -> void:
 		draw_rect(Rect2(tp + Vector2(-6, 4), Vector2(12, 34)), Color(c, 0.6))
 		P.flame(self, tp, 26.0, _t, tx * 40.0)
 
-	# the prisoner, back to us, sword low, in the moon's pool
-	P.glow(self, who + Vector2(0, 6), 200.0, 0.3, 0.3)
-	Game.shadow(self, who + Vector2(0, 4), 44.0)
-	var r := 2.0
-	var sway := sin(_t * 1.6) * 1.5
-	draw_line(who + Vector2(9 * r, -18 * r), who + Vector2(30 * r, 6), Game.PALE_JADE, 4.0)
-	draw_line(who + Vector2(-5 * r, -14 * r), who + Vector2(-5 * r, 0), c, 5.0 * r)
-	draw_line(who + Vector2(5 * r, -14 * r), who + Vector2(5 * r, 0), c, 5.0 * r)
-	draw_line(who + Vector2(0, -32 * r + sway), who + Vector2(0, -16 * r), c, 16.0 * r)
-	draw_circle(who + Vector2(0, -32 * r + sway), 8.0 * r, c)
-	draw_circle(who + Vector2(0, -16 * r), 8.0 * r, c)
-	draw_circle(who + Vector2(0, -41 * r + sway), 6.5 * r, c)
-
 	P.web(self, Vector2.ZERO, 90.0, Vector2(1, 1))
 	P.web(self, Vector2(s.x, 0), 90.0, Vector2(-1, 1))
 	P.vignette(self, s, 160.0, 0.6)
 
+	# the squire, back to us, practice sword low, in the moon's pool: helm and
+	# plume above, the cape hanging over the back
+	P.glow(self, who + Vector2(0, 6), 200.0, 0.3, 0.3)
+	Game.shadow(self, who + Vector2(0, 4), 44.0)
+	var r := 2.0
+	var sway := sin(_t * 1.6) * 1.5
+	var j := Game.PALE_JADE
+	var ink := Game.DEEP_MOSS
+	var tip := who + Vector2(30 * r, 2)
+	var hand := who + Vector2(9 * r, -18 * r)
+	draw_line(hand, tip, ink, 4.5 * r)
+	draw_line(hand, tip, j, 2.5 * r)
+	draw_line(hand + Vector2(-4, -5) * r, hand + Vector2(4, 5) * r, j, 2.2 * r)   # crossguard
+	draw_line(who + Vector2(-5 * r, -14 * r), who + Vector2(-5 * r, 0), j, 5.0 * r)
+	draw_line(who + Vector2(5 * r, -14 * r), who + Vector2(5 * r, 0), j, 5.0 * r)
+	draw_line(who + Vector2(0, -32 * r + sway), who + Vector2(0, -16 * r), j, 16.0 * r)
+	draw_circle(who + Vector2(0, -32 * r + sway), 8.0 * r, j)
+	draw_circle(who + Vector2(0, -16 * r), 8.0 * r, j)
+	var cape := PackedVector2Array([Vector2(-7, -35 + sway), Vector2(7, -35 + sway), Vector2(9.5, -9), Vector2(1.5, -7.5), Vector2(-8.5, -9.5)])
+	for i in cape.size():
+		cape[i] = who + cape[i] * r
+	draw_polyline(cape + PackedVector2Array([cape[0]]), ink, 3.0)
+	draw_colored_polygon(cape, j)
+	var plume := PackedVector2Array([Vector2(-5, -49), Vector2(-11, -51), Vector2(-19, -47), Vector2(-24, -39), Vector2(-22, -32), Vector2(-15, -42)])
+	for i in plume.size():
+		plume[i] = who + (plume[i] + Vector2(sin(_t * 1.1) * 0.6 * plume[i].x / -24.0, sway)) * r
+	draw_polyline(plume + PackedVector2Array([plume[0]]), ink, 3.0)
+	draw_colored_polygon(plume, Game.SAPPHIRE_CORE)
+	var helm_top := who + Vector2(0, -43 * r + sway)
+	var helm_low := who + Vector2(0, -39 * r + sway)
+	draw_line(helm_top, helm_low, ink, 17.5 * r)
+	draw_circle(helm_top, 8.75 * r, ink)
+	draw_circle(helm_low, 8.75 * r, ink)
+	draw_line(helm_top, helm_low, j, 16.0 * r)
+	draw_circle(helm_top, 8.0 * r, j)
+	draw_circle(helm_low, 8.0 * r, j)
 
 func _cell(id: int, r: Rect2) -> void:
 	var c := Game.SAPPHIRE_CORE

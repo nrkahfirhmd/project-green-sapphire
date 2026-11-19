@@ -34,7 +34,7 @@ func setup(back_label: String, back_scene: String, caption_fn: Callable) -> void
 
 	var col := W.vbox(16)
 	col.add_child(W.Text.new("PAUSED", 48, 600, 0.25))
-	_caption = W.Text.new("", 16, 400, 0.2, Color(UI.CORE, 0.75))
+	_caption = W.Text.new("", 18, 400, 0.2)
 	col.add_child(_caption)
 	col.add_child(W.Shape.new(Vector2(0, 8), func(_c: Control, _s: Vector2): pass))
 	_resume = Btn.new("RESUME", Vector2(480, 100), 28)
@@ -86,7 +86,7 @@ func open() -> void:
 	_settings.hide()
 	# overlay fades in; the panel rises 24 units into place
 	_fade = 0.0
-	_sheet.offset_top = TOP + 24.0
+	_sheet.offset_top = TOP + _rise()
 	_sheet.modulate.a = 0.0
 	if _tw:
 		_tw.kill()
@@ -104,11 +104,15 @@ func close() -> void:
 		_tw.kill()
 	_tw = create_tween().set_parallel()
 	_tw.tween_property(self, "_fade", 0.0, 0.14).set_ease(Tween.EASE_IN)
-	_tw.tween_property(_sheet, "offset_top", TOP + 24.0, 0.14).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	_tw.tween_property(_sheet, "offset_top", TOP + _rise(), 0.14).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
 	_tw.tween_property(_sheet, "modulate:a", 0.0, 0.14)
 	_tw.chain().tween_callback(func():
 		hide()
 		get_tree().paused = false)
+
+
+func _rise() -> float:
+	return 0.0 if Game.reduced_motion else 24.0
 
 
 func _draw() -> void:

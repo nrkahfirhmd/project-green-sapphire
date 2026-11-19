@@ -64,6 +64,7 @@ func _on_run_over(_win: bool) -> void:
 	for a in _btn_touch.values():
 		Input.action_release(a)
 	_btn_touch.clear()
+	create_tween().tween_property(self, "modulate:a", 0.0, 0.25)   # out of the result screen's way
 
 
 func _stick_home() -> Vector2:
@@ -74,13 +75,14 @@ func _stick_home() -> Vector2:
 ## The action buttons, anchored to the bottom-right of the safe area.
 func _buttons() -> Array:
 	var s := Game.safe_area(size)
+	var k := Game.button_size
 	return [
-		{"a": "attack_heavy", "p": s.end - Vector2(130, 150), "r": 70.0, "t": "HEAVY"},
-		{"a": "attack_light", "p": s.end - Vector2(295, 77), "r": 60.0, "t": "LIGHT"},
-		{"a": "dodge", "p": s.end - Vector2(160, 322), "r": 58.0, "t": "DODGE"},
-		{"a": "blink", "p": s.end - Vector2(330, 250), "r": 52.0, "t": "BLINK"},
-		{"a": "ricochet", "p": s.end - Vector2(460, 120), "r": 52.0, "t": "RICOCHET"},
-		{"a": "ultimate", "p": s.end - Vector2(150, 480), "r": 52.0, "t": "ULT"},
+		{"a": "attack_heavy", "p": s.end - Vector2(130, 150) * k, "r": 70.0 * k, "t": "HEAVY"},
+		{"a": "attack_light", "p": s.end - Vector2(295, 77) * k, "r": 60.0 * k, "t": "LIGHT"},
+		{"a": "dodge", "p": s.end - Vector2(160, 322) * k, "r": 58.0 * k, "t": "DODGE"},
+		{"a": "blink", "p": s.end - Vector2(330, 250) * k, "r": 52.0 * k, "t": "BLINK"},
+		{"a": "ricochet", "p": s.end - Vector2(460, 120) * k, "r": 52.0 * k, "t": "RICOCHET"},
+		{"a": "ultimate", "p": s.end - Vector2(150, 480) * k, "r": 52.0 * k, "t": "ULT"},
 	]
 
 
@@ -266,30 +268,35 @@ func _draw() -> void:
 	var pr := _pause_rect()
 	var pdown := pressed.has("pause")
 	if locked:
-		UI.dashed_rect(self, pr, Color(c, 0.3))
+		draw_rect(pr, Color(UI.MOSS, 0.8))
+		UI.dashed_rect(self, pr, Game.FLOOR)
 	else:
-		draw_rect(pr, Color(c, 0.5) if pdown else Color(UI.MOSS, 0.6))
+		draw_rect(pr, c if pdown else Color(UI.MOSS, 0.8))
 		if not pdown:
-			draw_rect(pr, Color(c, 0.6), false, UI.STROKE)
-	var bar_col := UI.MOSS if pdown else Color(c, 0.3 if locked else 1.0)
+			draw_rect(pr, c, false, UI.STROKE)
+	var bar_col := UI.MOSS if pdown else (Game.FLOOR if locked else c)
 	for x in [-11.0, 11.0]:
 		draw_rect(Rect2(pr.get_center() + Vector2(x - 5.0, -18.0), Vector2(10, 36)), bar_col)
 
 	# stick: a resting hint, or live under the thumb
 	var live := _stick_touch != -1
 	var origin := _stick_origin if live else _stick_home()
-	var ring_a := 0.6 if live else 0.35
-	draw_arc(origin, STICK_RADIUS, 0, TAU, 64, Color(c, ring_a * (0.5 if locked else 1.0)), UI.STROKE)
+	# no alpha here: the last pass snaps a see-through ring to whatever is under
+	# it, so it would vanish on the floor. A dark band keeps it visible on both.
+	var stick_col: Color = Game.FLOOR if locked else c
+	draw_arc(origin, STICK_RADIUS, 0, TAU, 64, UI.MOSS, UI.STROKE + 4.0)
+	draw_arc(origin, STICK_RADIUS, 0, TAU, 64, stick_col, UI.STROKE)
 	var knob := origin + _knob
-	draw_circle(knob, KNOB_RADIUS, Color(c, 0.5 if live else 0.2))
+	draw_circle(knob, KNOB_RADIUS, stick_col if live else Color(UI.MOSS, 0.8))
 	if not live:
-		draw_arc(knob, KNOB_RADIUS, 0, TAU, 48, Color(c, 0.35), UI.STROKE)
+		draw_arc(knob, KNOB_RADIUS, 0, TAU, 48, stick_col, UI.STROKE)
 
 	for b in _buttons():
 		var a: String = b["a"]
 		var p: Vector2 = b["p"]
 		var no := float(_deny.get(b["a"], 0.0))
-		p.x += sin(no * 28.0) * 8.0 * no
+		if not Game.reduced_motion:
+			p.x += sin(no * 28.0) * 8.0 * no
 		var r: float = b["r"]
 		var down := pressed.has(a)
 		var sc := float(_scale.get(a, 1.0)) * (1.0 + 0.08 * float(_pop.get(a, 0.0)))
@@ -299,23 +306,24 @@ func _draw() -> void:
 		var cd := _cd(a) if COOLING.has(a) else Vector2.ZERO
 		var ult := _ult() if a == "ultimate" else Vector2(1, 1)
 		if locked:
-			_dashed_circle(p, r, Color(c, 0.3))
-			label_col = Color(c, 0.3)
+			draw_circle(p, r, Color(UI.MOSS, 0.8))
+			_dashed_circle(p, r, Game.FLOOR)
+			label_col = Game.FLOOR
 		elif down:
-			draw_circle(p, r, Color(c, 0.5))
+			draw_circle(p, r, c)
 			label_col = UI.MOSS
 		elif cd.x > 0.0 or ult.y < 1.0:
 			# cooling down (or the ultimate still charging): dim ring, and an arc
 			# sweeping clockwise from 12 o'clock as it comes back
-			draw_circle(p, r, Color(UI.MOSS, 0.45))
-			draw_arc(p, r, 0, TAU, 48, Color(c, 0.25), UI.STROKE)
+			draw_circle(p, r, Color(UI.MOSS, 0.8))
+			draw_arc(p, r, 0, TAU, 48, Game.FLOOR, UI.STROKE)
 			var done := ult.x if a == "ultimate" else 1.0 - cd.x / maxf(cd.y, 0.01)
 			if done > 0.0:
 				draw_arc(p, ring, -PI * 0.5, -PI * 0.5 + TAU * clampf(done, 0.0, 1.0), 48, c, 6.0)
-			label_col = Color(c, 0.4)
+			label_col = Game.FLOOR
 		else:
-			draw_circle(p, r, Color(UI.MOSS, 0.45))
-			draw_arc(p, r, 0, TAU, 48, Color(c, 0.6), UI.STROKE)
+			draw_circle(p, r, Color(UI.MOSS, 0.8))
+			draw_arc(p, r, 0, TAU, 48, c, UI.STROKE)
 		var px := 18 if r > 56.0 else 14
 		UI.text(self, p - Vector2(0, UI.text_height(px) * 0.5), b["t"], px, label_col, 600, 0.12, 0)
 

@@ -74,9 +74,7 @@ func _draw() -> void:
 	if solid:
 		draw_rect(r, c)
 	else:
-		draw_rect(r, Color(UI.MOSS, 0.6))
-		if _sel > 0.0:
-			draw_rect(r, Color(c, 0.15 * _sel))
+		draw_rect(r, UI.MOSS)     # opaque: a see-through fill snaps to the world's stipple
 	draw_rect(r, c if (solid or _sel > 0.5) else Color(c, 0.6), false, UI.STROKE)
 	var txt := label
 	var col := UI.MOSS if solid else c

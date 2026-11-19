@@ -10,7 +10,7 @@ extends Control
 ##                         them; the credits begin
 ##   50-63 s   into the    the circle tightens into a spiral; gate V's bars
 ##             light       rise
-##   63 s      the climax  they meet: a flash, a shockwave through the glyphs,
+##   63 s      the climax  they meet: a flash, a shockwave through the stipple,
 ##                         one great green sapphire, rays turning
 ##   88-114 s  climax      the five keepers' ghosts circle it, then fly in on
 ##                         the beat, one by one
@@ -20,7 +20,7 @@ extends Control
 ##                         sapphire's diamonds, THE END, the run's totals,
 ##                         RETURN HOME
 ##
-## Drawn in the palette, under the same ASCII pass as the game; the credits,
+## Drawn in the palette, under the same dither pass as the game; the credits,
 ## captions and buttons sit above it, crisp. SKIP jumps to the end card.
 
 const UI := preload("res://scripts/ui/ui.gd")
@@ -42,12 +42,12 @@ const SONG_END := 142.6
 const CREDITS := [
 	["GREEN SAPPHIRE", 40, 600, 1.0],
 	["", 30, 400, 0.0],
-	["A GAME BY", 14, 400, 0.6], ["KAHFI R", 24, 600, 1.0], ["", 40, 400, 0.0],
-	["DIRECTION & DESIGN", 14, 400, 0.6], ["FI", 22, 600, 1.0], ["", 30, 400, 0.0],
-	["PROGRAMMING", 14, 400, 0.6], ["FI", 22, 600, 1.0], ["", 30, 400, 0.0],
-	["ART & ASCII", 14, 400, 0.6], ["CLAUDE", 22, 600, 1.0], ["", 30, 400, 0.0],
-	["MUSIC", 14, 400, 0.6], ["KV", 22, 600, 1.0], ["", 30, 400, 0.0],
-	["SOUND DESIGN", 14, 400, 0.6], ["KV", 22, 600, 1.0], ["", 18, 400, 0.0],
+	["A GAME BY", 14, 400, 0.6], ["FIRANDA", 24, 600, 1.0], ["", 40, 400, 0.0],
+	["DIRECTION & DESIGN", 14, 400, 0.6], ["FIRANDA", 22, 600, 1.0], ["", 30, 400, 0.0],
+	["PROGRAMMING", 14, 400, 0.6], ["FIRANDA", 22, 600, 1.0], ["", 30, 400, 0.0],
+	["ART & DITHER", 14, 400, 0.6], ["CLAUDE", 22, 600, 1.0], ["", 30, 400, 0.0],
+	["MUSIC", 14, 400, 0.6], ["FIRANDA", 22, 600, 1.0], ["", 30, 400, 0.0],
+	["SOUND DESIGN", 14, 400, 0.6], ["FIRANDA", 22, 600, 1.0], ["", 18, 400, 0.0],
 	["FOLEY RECORDINGS (CC0, FREESOUND)", 12, 400, 0.6],
 	["nicoproson  ·  Wagna  ·  Elements-Library", 14, 400, 0.85],
 	["crashoverride6  ·  launchsite  ·  Breviceps", 14, 400, 0.85],
@@ -56,9 +56,8 @@ const CREDITS := [
 	["Sanderboah  ·  Aurelon  ·  LukaCafuka", 14, 400, 0.85],
 	["221Beimesche  ·  jmdh  ·  RedwoodRunner", 14, 400, 0.85],
 	["Flamiffer  ·  Hupguy  ·  KasDonatov", 14, 400, 0.85], ["", 30, 400, 0.0],
-	# TODO: the playtesters' names, once confirmed
-	["PLAYTESTERS", 14, 400, 0.6], ["[ NAME ]", 20, 600, 1.0], ["[ NAME ]", 20, 600, 1.0],
-	["[ NAME ]", 20, 600, 1.0], ["", 30, 400, 0.0],
+	["PLAYTESTERS", 14, 400, 0.6], ["ICHSAN", 20, 600, 1.0], ["NAUFAL", 20, 600, 1.0],
+	["FITRA", 20, 600, 1.0], ["YORAM", 20, 600, 1.0], ["", 30, 400, 0.0],
 	["SPECIAL THANKS", 14, 400, 0.6], ["ANTONIO PALOMBA", 20, 600, 1.0], ["CHALLENGE MENTOR", 12, 400, 0.6],
 	["", 40, 400, 0.0],
 	["TYPE", 14, 400, 0.6], ["IBM Plex Mono (SIL Open Font License)", 16, 400, 0.85], ["", 30, 400, 0.0],
@@ -99,14 +98,14 @@ func _ready() -> void:
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_art.draw.connect(_draw_art)
 	add_child(_art)
-	var ascii := ColorRect.new()
-	ascii.name = "Ascii"
-	ascii.add_to_group("ascii")
-	ascii.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ascii.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ascii.material = ShaderMaterial.new()
-	ascii.material.shader = preload("res://shaders/ascii.gdshader")
-	add_child(ascii)
+	var dither := ColorRect.new()
+	dither.name = "Dither"
+	dither.add_to_group("dither")
+	dither.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dither.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dither.material = ShaderMaterial.new()
+	dither.material.shader = preload("res://shaders/dither.gdshader")
+	add_child(dither)
 	_ui = Control.new()
 	_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -170,17 +169,23 @@ func _show_card() -> void:
 	_card = Control.new()
 	_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	_card.draw.connect(func(): _card.draw_rect(Rect2(Vector2.ZERO, _card.size), Color(UI.MOSS, 0.82)))
-	var col := W.vbox(32)
+	_card.draw.connect(func(): _card.draw_rect(Rect2(Vector2.ZERO, _card.size), Color(UI.MOSS, 0.9)))
+	var col := W.vbox(28)
+	# the five stones round the one they became: the whole sapphire in Jade
 	col.add_child(W.Shape.new(Vector2(0, 220), func(c: Control, s: Vector2):
 		var m := s * 0.5
 		UI.diamond(c, m, 120, UI.CORE, false)
 		for d in [Vector2(0, -85), Vector2(85, 0), Vector2(0, 85), Vector2(-85, 0)]:
 			UI.diamond(c, m + d, 44, UI.CORE)
-		UI.diamond(c, m, 52, UI.CORE)))
-	col.add_child(W.Text.new("THE END", 56, 600, 0.2))
-	col.add_child(W.Text.new("TOTAL TIME %s   ·   HITS TAKEN %d" % [UI.fmt_time(Game.total_time), Game.total_hits],
-		16, 400, 0.2, Color(UI.CORE, 0.75)))
+		UI.diamond(c, m, 52, UI.JADE)))
+	col.add_child(W.Text.new("THE END", 72, 600, 0.24))
+	var stats := W.hbox(96, BoxContainer.ALIGNMENT_CENTER)
+	for pair in [["TOTAL TIME", UI.fmt_time(Game.total_time)], ["HITS TAKEN", str(Game.total_hits)]]:
+		var block := W.vbox(8, BoxContainer.ALIGNMENT_CENTER)
+		block.add_child(W.Text.new(pair[0], 16, 400, 0.3))
+		block.add_child(W.Text.new(pair[1], 36, 600, 0.05))
+		stats.add_child(block)
+	col.add_child(stats)
 	var home := Btn.new("RETURN HOME", Vector2(440, 100), 28)
 	home.pressed.connect(func():
 		Game.new_game()
@@ -188,7 +193,7 @@ func _show_card() -> void:
 	var cc := CenterContainer.new()
 	cc.add_child(home)
 	col.add_child(cc)
-	_card.add_child(W.top_centred(col, 120))
+	_card.add_child(W.top_centred(col, 130))
 	add_child(_card)
 	_card.modulate.a = 0.0
 	_card.create_tween().tween_property(_card, "modulate:a", 1.0, 2.0)
@@ -290,7 +295,7 @@ func _draw_art() -> void:
 	_art.draw_rect(Rect2(gate.position.x - 16, gate.position.y - 30, gate.size.x + 32, 30), Color(c, 0.5))
 
 	# the floor, lines running to the gate
-	_art.draw_rect(Rect2(0, fy, w, h - fy), Color(c, 0.08))
+	_art.draw_rect(Rect2(0, fy, w, h - fy), Game.FLOOR)
 	_art.draw_line(Vector2(0, fy), Vector2(w, fy), Color(c, 0.4), 3.0)
 	for k in 13:
 		var fx := (k - 6) * 220.0
@@ -346,7 +351,7 @@ func _draw_art() -> void:
 		# rising and shrinking to a star
 		var r := lerpf(150.0, 10.0, rise) * (1.0 + 0.05 * _pulse())
 		_gem(gem_at, r * (0.6 + 0.4 * whole), _t * 0.25)
-		var flash := 1.0 - _k(WHOLE, WHOLE + 1.2)
+		var flash := 0.0 if Game.reduced_motion else 1.0 - _k(WHOLE, WHOLE + 1.2)
 		if flash > 0.0:
 			_art.draw_rect(Rect2(Vector2.ZERO, size), Color(Game.PALE_JADE, 0.6 * flash))
 		if rise > 0.95:
@@ -450,21 +455,30 @@ func _keeper(i: int, at: Vector2, col: Color, s: float) -> void:
 			_art.draw_polyline(tf * PackedVector2Array([Vector2(-10, -16), Vector2(8, 10)]), col, 2.0)
 
 
-## The prisoner from behind: hood, cloak, the rapier at their hip. Walking,
-## they bob; `a` fades them into the light.
+## The squire from behind: oversized helm and plume, short cape over the
+## back, the practice sword at their side. Walking, they bob; `a` fades them
+## into the light.
 func _prisoner(at: Vector2, s: float, walking: bool, a: float) -> void:
-	var c := Game.SAPPHIRE_CORE
+	var c := Color(Game.PALE_JADE, 0.9 * a)
+	var ink := Color(Game.DEEP_MOSS, a)
 	var bob := absf(sin(_t * 4.2)) * 6.0 * s if walking else sin(_t * 1.2) * 1.5
+	var step := sin(_t * 8.4) * 8.0 if walking else 0.0
 	var tf := Transform2D(0.0, Vector2(s, s), 0.0, at + Vector2(0, -bob))
 	_art.draw_colored_polygon(Transform2D(0.0, at) * Game.ellipse(44 * s, 10 * s), Color(Game.DEEP_MOSS, 0.6 * a))
-	var cloak := tf * PackedVector2Array([Vector2(-34, 0), Vector2(34, 0), Vector2(26, -120), Vector2(0, -140), Vector2(-26, -120)])
-	_art.draw_colored_polygon(cloak, Color(c, 0.85 * a))
-	_art.draw_polyline(cloak + PackedVector2Array([cloak[0]]), Color(Game.DEEP_MOSS, a), 3.0)
-	_art.draw_circle(tf * Vector2(0, -160), 24.0 * s, Color(c, 0.9 * a))           # hood
-	_art.draw_arc(tf * Vector2(0, -160), 24.0 * s, PI * 0.15, PI * 0.85, 10, Color(Game.DEEP_MOSS, a), 3.0)
-	_art.draw_line(tf * Vector2(26, -60), tf * Vector2(56, 8), Color(Game.PALE_JADE, 0.8 * a), 3.0)   # the rapier
-	_art.draw_line(tf * Vector2(20, -66), tf * Vector2(32, -54), Color(Game.PALE_JADE, 0.8 * a), 5.0)
-
+	_art.draw_line(tf * Vector2(-14, -50), tf * Vector2(-14, -step), c, 22.0 * s)   # legs
+	_art.draw_line(tf * Vector2(14, -50), tf * Vector2(14, step), c, 22.0 * s)
+	_art.draw_line(tf * Vector2(26, -66), tf * Vector2(58, 4), ink, 11.0 * s)       # the practice sword
+	_art.draw_line(tf * Vector2(26, -66), tf * Vector2(58, 4), c, 7.0 * s)
+	_art.draw_line(tf * Vector2(16, -60), tf * Vector2(36, -72), c, 6.0 * s)        # its crossguard
+	var cape := tf * PackedVector2Array([Vector2(-30, -40), Vector2(30, -40), Vector2(22, -128), Vector2(-22, -128)])
+	_art.draw_colored_polygon(cape, c)
+	_art.draw_polyline(cape + PackedVector2Array([cape[0]]), ink, 3.0)
+	var plume := tf * PackedVector2Array([Vector2(-2, -186), Vector2(4, -206), Vector2(-12, -218), Vector2(-34, -212), Vector2(-42, -184), Vector2(-22, -196)])
+	_art.draw_colored_polygon(plume, Color(Game.SAPPHIRE_CORE, 0.9 * a))
+	_art.draw_polyline(plume + PackedVector2Array([plume[0]]), ink, 3.0)
+	var helm := tf * PackedVector2Array([Vector2(-26, -132), Vector2(26, -132), Vector2(26, -172), Vector2(18, -184), Vector2(-18, -184), Vector2(-26, -172)])
+	_art.draw_colored_polygon(helm, c)
+	_art.draw_polyline(helm + PackedVector2Array([helm[0]]), ink, 3.0)
 
 # --- ui ----------------------------------------------------------------
 func _draw_ui() -> void:

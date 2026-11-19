@@ -9,7 +9,7 @@ extends Node2D
 ## Every cell leads to the same fight scene for now; Game.current_boss tells the
 ## fight (and, on the way back, this scene) which cell it came from.
 ##
-## Drawn like the arena: palette shapes under the ASCII shader. The jail itself
+## Drawn like the arena: palette shapes under the dither shader. The jail itself
 ## is drawn once and never redrawn; only torches, the eyes in the cells, the
 ## altar's sapphires, the gate and the dust are redrawn each frame, on _live.
 ##
@@ -410,6 +410,7 @@ func _near_cell(p: Vector2, margin: float) -> bool:
 func _draw() -> void:
 	var c := Game.SAPPHIRE_CORE
 	var vp := get_viewport_rect().size
+	draw_rect(hall, Game.FLOOR)
 	for b in _bricks:
 		draw_rect(b.r, Color(c, b.a))
 	# the back wall falls into shadow towards the top
@@ -502,9 +503,8 @@ func _draw() -> void:
 		var j := (i + 1) % n
 		draw_colored_polygon(PackedVector2Array([_altar_poly[i], _altar_poly[j], _altar_rim[j], _altar_rim[i]]),
 			Color(c, 0.4 if i % 2 == 0 else 0.28))
-	draw_colored_polygon(_altar_poly, Game.DEEP_MOSS)
-	draw_colored_polygon(_altar_poly, Color(c, 0.22))
-	draw_polyline(_altar_poly + PackedVector2Array([_altar_poly[0]]), Color(c, 0.5), 2.0)
+	draw_colored_polygon(_altar_poly, c)    # the room's goal: the one light slab on the floor
+	draw_polyline(_altar_poly + PackedVector2Array([_altar_poly[0]]), Game.DEEP_MOSS, 2.0)
 	for id in [1, 2, 3, 4, 5]:
 		var s := _socket(id)
 		var e := Game.ellipse(12.0 if id != 5 else 18.0, 6.0 if id != 5 else 9.0)
@@ -623,8 +623,12 @@ func _draw_live() -> void:
 		var h := 72.0 if id == 5 else 46.0
 		var w := 16.0 if id == 5 else 12.0
 		var a := 0.8 + 0.2 * sin(_t * 2.0 + id)
-		_live.draw_colored_polygon(PackedVector2Array([s + Vector2(0, -h), s + Vector2(-w, -h * 0.45), s]), Color(c, a))
-		_live.draw_colored_polygon(PackedVector2Array([s + Vector2(0, -h), s + Vector2(w, -h * 0.45), s]), Color(c, a * 0.55))
+		# the altar top is Sapphire Core too, so lit facet is Pale Jade and the outline is Ink
+		var l := PackedVector2Array([s + Vector2(0, -h), s + Vector2(-w, -h * 0.45), s])
+		var r := PackedVector2Array([s + Vector2(0, -h), s + Vector2(w, -h * 0.45), s])
+		_live.draw_colored_polygon(l, Color(Game.PALE_JADE, a))
+		_live.draw_colored_polygon(r, c)
+		_live.draw_polyline(PackedVector2Array([l[1], l[0], r[1], s, l[1]]), Game.DEEP_MOSS, 2.0)
 
 	for m in _motes:
 		var p: Vector2 = m.p + Vector2(sin(_t * 0.6 + float(m.ph)) * 8.0, 0)
@@ -698,4 +702,4 @@ class HubHud extends Control:
 				continue
 			var cell: Rect2 = hub.doors[id].cell
 			var tag := "SAPPHIRE TAKEN" if state == "carried" else "CLEARED"
-			UI.text(self, Vector2(cell.get_center().x, cell.position.y + 26.0), tag, 14, Color(c, 0.35), 400, 0.15, 0)
+			UI.text(self, Vector2(cell.get_center().x, cell.position.y + 26.0), tag, 14, c, 600, 0.2, 0)

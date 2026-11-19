@@ -49,9 +49,11 @@ func _ready() -> void:
 				_streams[key].append(s)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
+		p.bus = "SFX"
 		add_child(p)
 		_voices.append(p)
 	_amb = AudioStreamPlayer.new()
+	_amb.bus = "SFX"
 	add_child(_amb)
 
 
@@ -111,6 +113,7 @@ func loop(name: String, on := true, db := 0.0) -> void:
 	if p or s.is_empty():
 		return
 	p = AudioStreamPlayer.new()
+	p.bus = "SFX"
 	p.stream = s[0]
 	p.volume_db = db
 	add_child(p)

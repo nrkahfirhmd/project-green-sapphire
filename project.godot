@@ -13,9 +13,9 @@ config_version=5
 config/name="Green Sapphire"
 run/main_scene="res://scenes/home.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.14118, 0.18824, 0.13725, 1)
 boot_splash/show_image=false
-boot_splash/bg_color=Color(0.231, 0.286, 0.224, 1)
+config/icon="res://green-sapphire-icon-1024.png"
 
 [autoload]
 
@@ -29,8 +29,8 @@ Post="*res://scripts/post.gd"
 
 window/size/viewport_width=1950
 window/size/viewport_height=900
-window/size/window_width_override=1300
-window/size/window_height_override=600
+window/size/window_width_override=1950
+window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
@@ -131,4 +131,4 @@ pointing/emulate_touch_from_mouse=true
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.231, 0.286, 0.224, 1)
+environment/defaults/default_clear_color=Color(0.14118, 0.18824, 0.13725, 1)

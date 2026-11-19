@@ -5,7 +5,12 @@ extends Node
 # --- Settings (persisted to user://) ---------------------------------
 const _CFG_PATH := "user://settings.cfg"
 var volume := 1.0            # 0..1, Master bus
+var music_volume := 1.0      # 0..1, Music bus
+var sfx_volume := 1.0        # 0..1, SFX bus, ambience included
+var shake := 1.0             # 0..1, how much of each camera shake lands
+var reduced_motion := false  # no shake, tone rings, trails, punch-ins or screen flashes; hit-stop stays, it's timing
 var haptic_enabled := true
+var button_size := 1.0       # touch buttons: 0.9, 1 or 1.2
 var prologue_done := false   # PLAY skips the prologue once it has been played (or skipped)
 var met: Array = []          # cells whose warden has said its first words
 
@@ -14,17 +19,19 @@ func _ready() -> void:
 	apply_volume()
 
 func apply_volume() -> void:
-	var idx := AudioServer.get_bus_index("Master")
-	AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(volume, 0.0001, 1.0)))
-	AudioServer.set_bus_mute(idx, volume <= 0.001)
+	_set_bus("Master", volume)
+	_set_bus("Music", music_volume)
+	_set_bus("SFX", sfx_volume)
 
-func set_volume(v: float) -> void:
-	volume = clampf(v, 0.0, 1.0)
+func _set_bus(bus: String, v: float) -> void:
+	var idx := AudioServer.get_bus_index(bus)
+	AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(v, 0.0001, 1.0)))
+	AudioServer.set_bus_mute(idx, v <= 0.001)
+
+## Sets one of the settings above, applies it and saves.
+func change(key: String, value: Variant) -> void:
+	set(key, value)
 	apply_volume()
-	_save_settings()
-
-func set_haptic(on: bool) -> void:
-	haptic_enabled = on
 	_save_settings()
 
 func _load_settings() -> void:
@@ -32,23 +39,44 @@ func _load_settings() -> void:
 	if cfg.load(_CFG_PATH) != OK:
 		return
 	volume = cfg.get_value("audio", "volume", volume)
+	music_volume = cfg.get_value("audio", "music", music_volume)
+	sfx_volume = cfg.get_value("audio", "sfx", sfx_volume)
+	shake = cfg.get_value("motion", "shake", shake)
+	reduced_motion = cfg.get_value("motion", "reduced", reduced_motion)
 	haptic_enabled = cfg.get_value("input", "haptic", haptic_enabled)
+	button_size = cfg.get_value("input", "button_size", button_size)
 	prologue_done = cfg.get_value("story", "prologue_done", prologue_done)
 	met = cfg.get_value("story", "met", met)
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("audio", "volume", volume)
+	cfg.set_value("audio", "music", music_volume)
+	cfg.set_value("audio", "sfx", sfx_volume)
+	cfg.set_value("motion", "shake", shake)
+	cfg.set_value("motion", "reduced", reduced_motion)
 	cfg.set_value("input", "haptic", haptic_enabled)
+	cfg.set_value("input", "button_size", button_size)
 	cfg.set_value("story", "prologue_done", prologue_done)
 	cfg.set_value("story", "met", met)
 	cfg.save(_CFG_PATH)
 
-# --- Locked 3-color palette (design bible) -------------------------------
-const DEEP_MOSS := Color("3B4939")     # arena, eye idle, sword grip
-const SAPPHIRE_CORE := Color("69A062") # player, muted text, eye mid-charge
-const PALE_JADE := Color("BBE2B6")     # boss body, blade, EVERY telegraph flash
-const SHADOW := Color.BLACK            # ground shadows; the ASCII pass turns them a green deeper than Deep Moss
+## What the four roles below look like on screen, in the same order. This is the
+## only place to change to recolour the game; boot_splash and the clear colour in
+## project.godot match the first.
+const SCREEN_PALETTE: Array[Color] = [Color("243023"), Color("3B4939"), Color("69A062"), Color("BBE2B6")]
+
+# --- Locked 4-colour palette (design bible) -------------------------------
+# Each layer owns a colour, so depth and focus read at a glance:
+#   INK   the dark around the stage, bosses at rest, shadows
+#   FLOOR the stage
+#   CORE  light on the stage and scenery, UI text
+#   CREAM the player, and anything about to hurt
+const DEEP_MOSS := Color("1B211A")     # INK: surroundings, boss bodies at rest, sword grip
+const FLOOR := Color("628141")         # the stage, boss eye idle
+const SAPPHIRE_CORE := Color("8BAE66") # light on scenery, UI text, eye mid-charge
+const PALE_JADE := Color("EBD5AB")     # CREAM: player, blade, EVERY telegraph flash
+const SHADOW := DEEP_MOSS              # ground shadows: true black would read as a false tint in the dither pass
 
 ## Off-device, the safe area of an iPhone 15/16 Pro in landscape (59 pt sides,
 ## 21 pt bottom), in canvas units: desktop runs and the editor then place the
@@ -78,8 +106,8 @@ func safe_area(viewport_size: Vector2) -> Rect2:
 ## The one light hangs high over the floor, so every shadow lies straight
 ## under its caster: a flat ellipse at floor point `at`. Something `height`
 ## above the floor casts a smaller, fainter one, and the gap between the two
-## is what reads as floating. Never thinner than about two glyph rows, or the
-## ASCII pass breaks it into chips.
+## is what reads as floating. Never thinner than a few dither blocks, or the
+## dither pass breaks it into chips.
 func shadow(ci: CanvasItem, at: Vector2, rx: float, height := 0.0, fade := 1.0) -> void:
 	var k := clampf(1.0 - height / 600.0, 0.5, 1.0)
 	var ry := maxf(rx * k * 0.3, 7.0)
@@ -249,9 +277,10 @@ func go(path: String) -> void:
 	if _fading:
 		return
 	_fading = true
+	var pace := 0.1 if reduced_motion else 1.0   # a near cut instead of the closing circle
 	Sfx.play("fade", 0.0, 0.0)
 	var layer := CanvasLayer.new()
-	layer.layer = 100                  # over the ASCII pass and the HUD
+	layer.layer = 100                  # over the dither pass and the HUD
 	var iris := ColorRect.new()
 	iris.mouse_filter = Control.MOUSE_FILTER_STOP
 	iris.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -263,7 +292,7 @@ func go(path: String) -> void:
 	get_tree().root.add_child(layer)
 	var close := iris.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	close.tween_method(func(r: float): iris.material.set_shader_parameter("radius", r),
-		IRIS_WIDE, 0.0, IRIS_CLOSE).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		IRIS_WIDE, 0.0, IRIS_CLOSE * pace).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	await close.finished
 	Engine.time_scale = 1.0
 	get_tree().paused = false
@@ -278,7 +307,7 @@ func go(path: String) -> void:
 	var open := iris.create_tween().set_ignore_time_scale().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	open.tween_interval(0.08)
 	open.tween_method(func(r: float): iris.material.set_shader_parameter("radius", r),
-		0.0, IRIS_WIDE, IRIS_OPEN).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		0.0, IRIS_WIDE, IRIS_OPEN * pace).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await open.finished
 	layer.queue_free()
 	_fading = false

@@ -150,17 +150,17 @@ func spd(v: float) -> float:
 
 func eye_color(t := eye_t) -> Color:
 	if t < 0.5:
-		return Game.DEEP_MOSS.lerp(Game.SAPPHIRE_CORE, t * 2.0)
+		return Game.FLOOR.lerp(Game.SAPPHIRE_CORE, t * 2.0)
 	return Game.SAPPHIRE_CORE.lerp(Game.PALE_JADE, (t - 0.5) * 2.0)
 
 
-## Sapphire Core at rest, so Pale Jade stays the "look now" signal: the body
-## only blooms to Jade over the last stretch of a windup, holds it through the
-## attack, and flashes full Jade when hit.
+## A dark silhouette at rest, so cream stays the "look now" signal: the body
+## only blooms to cream over the last stretch of a windup, holds it through the
+## attack, and flashes full cream when hit.
 func body_color() -> Color:
 	if _flash > 0.0:
 		return Game.PALE_JADE
-	return Game.SAPPHIRE_CORE.lerp(Game.PALE_JADE, clampf((eye_t - 0.6) / 0.4, 0.0, 1.0))
+	return Game.DEEP_MOSS.lerp(Game.PALE_JADE, clampf((eye_t - 0.6) / 0.4, 0.0, 1.0))
 
 
 ## Telegraph fill: Pale Jade, brighter as the attack nears.

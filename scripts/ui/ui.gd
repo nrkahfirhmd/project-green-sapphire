@@ -6,13 +6,13 @@ extends RefCounted
 ##
 ##   const UI := preload("res://scripts/ui/ui.gd")
 ##
-## All UI text is uppercase. Pale Jade appears in five places only (boss
-## health, low-HP bands, the lost-heart flash, a dropped sapphire, the gate
-## opening) -- never on buttons, headings or selection.
+## All UI text is uppercase. Cream (UI.JADE) appears in a few places only: the
+## game's title, boss health, low-HP bands, the lost-heart flash, a dropped
+## sapphire, the gate opening -- never on buttons or selection.
 
-const MOSS := Color("3B4939")
-const CORE := Color("69A062")
-const JADE := Color("BBE2B6")
+const MOSS := Color("1B211A")
+const CORE := Color("8BAE66")
+const JADE := Color("EBD5AB")
 
 const STROKE := 2.0
 const TICK := 8.0
@@ -42,7 +42,9 @@ static func text_width(s: String, size: int, weight := 600, em := 0.0) -> float:
 ## Text whose top-left (align -1), top-centre (0) or top-right (1) is `at`.
 static func text(ci: CanvasItem, at: Vector2, s: String, size: int, col: Color, weight := 600, em := 0.0, align := -1) -> void:
 	var f := font(size, weight, em)
-	var w := text_width(s, size, weight, em)
+	# the letter-spacing after the last glyph is empty space; aligning on it
+	# would push wide-tracked lines off centre by half a space
+	var w := text_width(s, size, weight, em) - roundi(em * size)
 	var x := at.x - (w * 0.5 if align == 0 else (w if align == 1 else 0.0))
 	ci.draw_string(f, Vector2(x, at.y + f.get_ascent(size)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 

@@ -3,14 +3,14 @@
 [ext_resource type="Script" uid="uid://cfrwb5i4ijqrv" path="res://scripts/hub.gd" id="1"]
 [ext_resource type="Script" uid="uid://2ftqk8bmna02" path="res://scripts/player.gd" id="2"]
 [ext_resource type="Script" uid="uid://c323pia66eos8" path="res://scripts/touch_controls.gd" id="3"]
-[ext_resource type="Shader" uid="uid://dut268hygyfqv" path="res://shaders/ascii.gdshader" id="4"]
+[ext_resource type="Shader" uid="uid://dut268hygyfqv" path="res://shaders/dither.gdshader" id="4"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 22.0
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_ascii"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dither"]
 shader = ExtResource("4")
-shader_parameter/pixel = 1.0
+shader_parameter/pixel = 3.0
 
 [node name="Hub" type="Node2D" unique_id=1295238031]
 y_sort_enabled = true
@@ -24,10 +24,10 @@ script = ExtResource("2")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=400982501]
 shape = SubResource("CircleShape2D_player")
 
-[node name="Ascii" type="CanvasLayer" parent="." unique_id=1768974455]
+[node name="Dither" type="CanvasLayer" parent="." unique_id=1768974455]
 
-[node name="Screen" type="ColorRect" parent="Ascii" unique_id=759686711 groups=["ascii"]]
-material = SubResource("ShaderMaterial_ascii")
+[node name="Screen" type="ColorRect" parent="Dither" unique_id=759686711 groups=["dither"]]
+material = SubResource("ShaderMaterial_dither")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
