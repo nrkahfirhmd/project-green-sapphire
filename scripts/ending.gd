@@ -186,8 +186,20 @@ func _show_card() -> void:
 		block.add_child(W.Text.new(pair[1], 36, 600, 0.05))
 		stats.add_child(block)
 	col.add_child(stats)
+	# the fastest runs so far, this one marked
+	var place := Game.record_run()
+	var board := W.vbox(6, BoxContainer.ALIGNMENT_CENTER)
+	board.add_child(W.Text.new("FASTEST RUNS", 16, 400, 0.3))
+	for i in Game.runs.size():
+		var r: Dictionary = Game.runs[i]
+		var line := "%d  %s  %s%s" % [i + 1, UI.fmt_time(float(r["time"])), "IRON" if r.get("iron", false) else "    ", "  <" if i == place else "   "]
+		board.add_child(W.Text.new(line, 22, 600 if i == place else 400, 0.05, UI.JADE if i == place else UI.CORE))
+	var bc := CenterContainer.new()
+	bc.add_child(board)
+	col.add_child(bc)
 	var home := Btn.new("RETURN HOME", Vector2(440, 100), 28)
 	home.pressed.connect(func():
+		Game.iron = false
 		Game.new_game()
 		Game.go(HOME))
 	var cc := CenterContainer.new()

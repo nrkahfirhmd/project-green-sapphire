@@ -683,6 +683,12 @@ class HubHud extends Control:
 			UI.diamond(self, Vector2(x + 8.0 + i * 28.0, dy), 16, c, i < n)
 		x += 4 * 16.0 + 3 * 12.0 + 28.0
 		UI.text(self, Vector2(x, 28), count, 26, c, 600, 0.12)
+		# the order rule, said outright: testers didn't know if I came before II
+		if not hub._gate_unlocked() and _chip <= 0.0:
+			var rule := "CELLS I TO IV IN ANY ORDER  ·  ALL FOUR OPEN THE GATE"
+			UI.text(self, Vector2(cx, 74), rule, 18, c, 400, 0.15, 0)
+		if Game.iron:
+			UI.text(self, Vector2(size.x - 40.0, 28), "IRON RUN", 20, UI.JADE, 600, 0.2, 1)
 
 		# carry chip slides down 20 units and fades in
 		if _chip > 0.0:
@@ -695,11 +701,11 @@ class HubHud extends Control:
 			UI.text(self, Vector2(r.position.x + 24.0 + 18.0 + 14.0, r.get_center().y - UI.text_height(22) * 0.5),
 				label, 22, Color(UI.MOSS, e), 600, 0.15)
 
-		# cleared cells say what happened there; cells are otherwise unlabelled
+		# each cell says where it stands: OPEN to fight, or what happened there
 		for id in hub.doors:
 			var state: String = Game.crystals.get(id, "")
-			if state == "" or id == 5:
+			if id == 5:
 				continue
 			var cell: Rect2 = hub.doors[id].cell
-			var tag := "SAPPHIRE TAKEN" if state == "carried" else "CLEARED"
+			var tag := "OPEN" if state == "" else "SAPPHIRE TAKEN" if state == "carried" else "CLEARED"
 			UI.text(self, Vector2(cell.get_center().x, cell.position.y + 26.0), tag, 14, c, 600, 0.2, 0)

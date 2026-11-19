@@ -264,12 +264,20 @@ class ResultScreen extends Control:
 			_best = best
 			_left = float(hud._b_hp) / maxf(1.0, float(hud._b_max))
 			var row := W.hbox(24, BoxContainer.ALIGNMENT_CENTER)
-			first = Btn.new("RETRY", Vector2(480, 120), 32)
-			var back := Btn.new("BACK TO JAIL", Vector2(360, 120), 28)
-			first.pressed.connect(func(): hud.retry_pressed.emit())
-			back.pressed.connect(func(): hud.jail_pressed.emit())
-			row.add_child(first)
-			row.add_child(back)
+			if Game.iron:
+				# permadeath: the run is over, every sapphire with it
+				first = Btn.new("START OVER", Vector2(480, 120), 32)
+				first.pressed.connect(func():
+					Game.new_game()
+					hud.jail_pressed.emit())
+				row.add_child(first)
+			else:
+				first = Btn.new("RETRY", Vector2(480, 120), 32)
+				var back := Btn.new("BACK TO JAIL", Vector2(360, 120), 28)
+				first.pressed.connect(func(): hud.retry_pressed.emit())
+				back.pressed.connect(func(): hud.jail_pressed.emit())
+				row.add_child(first)
+				row.add_child(back)
 			sheet = W.top_centred(row, 560)
 			add_child(sheet)
 		# overlay fades in; a defeat's sheet waits 0.4 s, then rises 24 units into place

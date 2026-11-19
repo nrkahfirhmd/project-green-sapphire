@@ -49,6 +49,8 @@ func _load_settings() -> void:
 	button_layout = cfg.get_value("input", "layout", button_layout)
 	prologue_done = cfg.get_value("story", "prologue_done", prologue_done)
 	met = cfg.get_value("story", "met", met)
+	bests = cfg.get_value("records", "bests", bests)
+	runs = cfg.get_value("records", "runs", runs)
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -59,9 +61,11 @@ func _save_settings() -> void:
 	cfg.set_value("motion", "reduced", reduced_motion)
 	cfg.set_value("input", "haptic", haptic_enabled)
 	cfg.set_value("input", "button_size", button_size)
+	cfg.set_value("input", "layout", button_layout)
 	cfg.set_value("story", "prologue_done", prologue_done)
 	cfg.set_value("story", "met", met)
-	cfg.set_value("input", "layout", button_layout)
+	cfg.set_value("records", "bests", bests)
+	cfg.set_value("records", "runs", runs)
 	cfg.save(_CFG_PATH)
 
 ## What the four roles below look like on screen, in the same order. This is the
@@ -215,7 +219,10 @@ class Ring extends Node2D:
 # --- Cells, and the result screen's bests --------------------------------
 const BOSS_NAMES := {1: "THE TURNKEY", 2: "THE PENDULUM", 3: "THE PRISM", 4: "THE HOURGLASS", 5: "THE MIRROR"}
 
-var bests := {}           # cell -> {"time": float, "hits": int}, wins only, this session
+var bests := {}           # cell -> {"time": float, "hits": int}, wins only, kept across sessions
+var runs: Array = []      # the fastest whole runs, best first: {"time", "hits", "iron"}
+const RUNS_KEPT := 5
+var iron := false         # this run is permadeath: one defeat and the sapphires are lost
 var total_time := 0.0     # summed over won fights, for the ending
 var total_hits := 0
 
@@ -228,7 +235,19 @@ func record_win(cell: int, elapsed: float, hits: int) -> Dictionary:
 	bests[cell] = {"time": elapsed if new_time else prev["time"], "hits": hits if new_hits else prev["hits"]}
 	total_time += elapsed
 	total_hits += hits
+	_save_settings()
 	return {"new_time": new_time and not prev.is_empty(), "new_hits": new_hits and not prev.is_empty()}
+
+
+## Files the finished run among the fastest; returns its place (0 = best), or
+## -1 when it didn't make the list.
+func record_run() -> int:
+	var run := {"time": total_time, "hits": total_hits, "iron": iron}
+	runs.append(run)
+	runs.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
+	runs = runs.slice(0, RUNS_KEPT)
+	_save_settings()
+	return runs.find(run)
 
 
 ## A fresh run of the jail: sapphires and totals cleared, bests kept.

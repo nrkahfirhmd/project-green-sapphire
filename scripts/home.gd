@@ -66,16 +66,22 @@ func _ready() -> void:
 	col.add_child(_gems)
 
 	var buttons := W.vbox(16)
-	buttons.add_theme_constant_override("separation", 16)
-	_play = Btn.new("PLAY", Vector2(400, 100), 32)
-	var settings := Btn.new("SETTINGS", Vector2(400, 100), 32)
+	buttons.add_theme_constant_override("separation", 12)
+	_play = Btn.new("PLAY", Vector2(400, 84), 32)
+	var iron := Btn.new("IRON RUN", Vector2(400, 84), 32)
+	var settings := Btn.new("SETTINGS", Vector2(400, 84), 32)
 	buttons.add_child(_play)
+	buttons.add_child(iron)
 	buttons.add_child(settings)
 	var bc := CenterContainer.new()
 	var bm := MarginContainer.new()
 	bm.add_theme_constant_override("margin_top", 24)
 	bm.add_child(buttons)
 	bc.add_child(bm)
+	if not Game.runs.is_empty():
+		var bcc := CenterContainer.new()
+		bcc.add_child(W.Text.new("FASTEST RUN  " + UI.fmt_time(float(Game.runs[0]["time"])), 20, 400, 0.2))
+		col.add_child(bcc)
 	col.add_child(bc)
 
 	_menu = W.top_centred(col, 150)
@@ -85,7 +91,16 @@ func _ready() -> void:
 	_settings.hide()
 	add_child(_settings)
 
-	_play.pressed.connect(func(): Game.go(JAIL if Game.prologue_done else PROLOGUE))
+	_play.pressed.connect(func():
+		if Game.iron:          # leaving an iron run for a normal one starts afresh
+			Game.iron = false
+			Game.new_game()
+		Game.go(JAIL if Game.prologue_done else PROLOGUE))
+	# permadeath: a fresh run, and a defeat anywhere loses every sapphire
+	iron.pressed.connect(func():
+		Game.new_game()
+		Game.iron = true
+		Game.go(JAIL if Game.prologue_done else PROLOGUE))
 	settings.pressed.connect(_open_settings.bind(true))
 	_settings.closed.connect(_open_settings.bind(false))
 	_play.grab_focus.call_deferred()
