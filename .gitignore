@@ -13,3 +13,7 @@ media/sfx_src/
 
 # the music's raw renders (GarageBand bounces); tools/make_music_loops.py makes media/music
 media/music_src/
+
+# not part of the game itself
+/tools/
+/docs/
