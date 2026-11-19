@@ -186,7 +186,7 @@ func _riposte(at: Vector2) -> void:
 	sfx("riposte")
 	if _taught == 1:
 		_taught = 2
-		_hint("PARRIED! STRIKE ITS BODY")
+		hint("PARRIED! STRIKE ITS BODY")
 	if jammed:
 		sfx("jam")              # the blade bites into the shelves
 	Game.hit_stop(0.1)
@@ -255,12 +255,6 @@ func _cancel() -> void:
 	_idle()
 
 
-func _hint(text: String) -> void:
-	var hud := get_tree().current_scene.get_node_or_null("UI/HUD") if get_tree().current_scene else null
-	if hud and hud.has_method("hint"):
-		hud.hint(text)
-
-
 func _idle() -> void:
 	state = S.IDLE
 	kind = ""
@@ -282,7 +276,7 @@ func _begin(k: String) -> void:
 	_last = k
 	if _taught == 0 and k in ["swing", "unwind", "rush"]:
 		_taught = 1
-		_hint("THRUST THE BLADE AS IT REACHES YOU")
+		hint("THRUST THE BLADE AS IT REACHES YOU")
 	state = S.TELEGRAPH
 	_total = spd(ATK[k]["windup"])
 	_timer = _total
@@ -491,16 +485,7 @@ func _draw() -> void:
 	# open to hits: a bright double ring that pulses, with four chevrons
 	# pointing in. It glides, so a riposte visibly hands it to the body.
 	if _can_be_hit() and not dead and _mark != Vector2.INF:
-		var m := L(_mark) + Vector2(0, -20)
-		var pulse := 0.5 + 0.5 * sin(_t * 9.0)
-		var rr := 44.0 + 8.0 * pulse
-		draw_arc(m, rr, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.95), 4.0)
-		draw_arc(m, rr + 10.0, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.4 + 0.4 * pulse), 2.0)
-		for k in 4:
-			var d := Vector2(1, 0).rotated(PI * 0.25 + k * PI * 0.5)
-			var tip := m + d * (rr + 14.0)
-			draw_colored_polygon(PackedVector2Array([tip, tip + d * 16.0 + d.orthogonal() * 8.0, tip + d * 16.0 - d.orthogonal() * 8.0]),
-				Color(Game.SAPPHIRE_CORE, 0.9))
+		draw_open_mark(L(_mark) + Vector2(0, -20))
 	# a riposte: a starburst where blade met rapier
 	if _parry_t > 0.0:
 		var pa := L(_parry_at) + Vector2(0, -BLADE_LIFT)

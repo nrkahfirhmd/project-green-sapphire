@@ -130,6 +130,27 @@ func phases() -> Array:
 	return phase_hp if not phase_hp.is_empty() else [max_hp / 2]
 
 
+## A line in the HUD's hint slot (a boss teaching its own fight, once).
+func hint(text: String) -> void:
+	var hud := get_tree().current_scene.get_node_or_null("UI/HUD") if get_tree().current_scene else null
+	if hud and hud.has_method("hint"):
+		hud.hint(text)
+
+
+## "Strike here now": a bright double ring that pulses, with four chevrons
+## pointing in. At `m`, in drawing space.
+func draw_open_mark(m: Vector2, r := 44.0) -> void:
+	var pulse := 0.5 + 0.5 * sin(_t * 9.0)
+	var rr := r + 8.0 * pulse
+	draw_arc(m, rr, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.95), 4.0)
+	draw_arc(m, rr + 10.0, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.4 + 0.4 * pulse), 2.0)
+	for k in 4:
+		var d := Vector2(1, 0).rotated(PI * 0.25 + k * PI * 0.5)
+		var tip := m + d * (rr + 14.0)
+		draw_colored_polygon(PackedVector2Array([tip, tip + d * 16.0 + d.orthogonal() * 8.0, tip + d * 16.0 - d.orthogonal() * 8.0]),
+			Color(Game.SAPPHIRE_CORE, 0.9))
+
+
 func telegraph(kind: String) -> void:
 	telegraph_started.emit(kind)
 	Haptics.play("telegraph")

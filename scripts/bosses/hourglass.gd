@@ -27,7 +27,13 @@ extends "res://scripts/bosses/boss_base.gd"
 ##   Time Echo (phase 2): every Sandfall, Sandslide and Quicksand is repeated
 ##     by a sand ghost ECHO_DELAY s later, in the same place.
 ##
-## Health 40, phase 2 at 20. global_position is where it stands.
+## Warnings, after the Pendulum: the lit neck wears the pulsing "strike here"
+## ring; with LOW_SAND left the top bulb flashes and the floor shows the
+## Time's Up blast before it is cast; an echo's replay is telegraphed like
+## the attack it repeats, ramping up over its last ECHO_WARN s; and the first
+## fight names each trick once in the HUD hint. Time's Up costs one heart.
+##
+## Health 50, phase 2 at 25. global_position is where it stands.
 ## Timer: the neck.
 
 enum S { IDLE, TELEGRAPH, ATTACK, RECOVER, STUN }
@@ -46,7 +52,9 @@ const CRACKS_TO_SPILL := 3
 const SPILL_STUN := 1.2
 const CRACK_LOCK := 5.0          # after a spill the glass holds this long
 const TIMESUP_R := 480.0
-const TIMESUP_WINDUP := 1.2
+const TIMESUP_WINDUP := 1.8
+const LOW_SAND := 0.25           # the top bulb flashes below this
+const ECHO_WARN := 0.8           # an echo's telegraph ramps up over its last this-many seconds
 const FALL_R := 62.0
 const SLIDE_SPEED := 700.0
 const SLIDE_HIT := 70.0
@@ -99,12 +107,20 @@ var _rewind_to := Vector2.ZERO
 var _rewind_hp := 0
 var _echoes: Array = []          # {kind, t, data}; replay at t <= 0
 var _ghosts: Array = []          # live echoes being drawn/replayed: {kind, age, data}
+static var _taught := {}         # hints shown this session, by name
 
 
 func _ready() -> void:
 	max_hp = 50
 	phase_hp = [25]
 	super()
+
+
+## A hint, the first time only.
+func _teach(id: String, text: String) -> void:
+	if not _taught.has(id):
+		_taught[id] = true
+		hint(text)
 
 
 func neck_open() -> bool:
@@ -292,6 +308,13 @@ func _begin(k: String) -> void:
 	_aim = (player_pos() - global_position).normalized()
 	telegraph(k)
 	match k:
+		"pour":
+			_teach("flip", "THRUST THE GLOWING NECK TO FLIP IT")
+		"timesup":
+			_teach("timesup", "OUT OF SAND! DODGE AS IT BURSTS")
+		"rewind":
+			_teach("rewind", "HIT IT TWICE TO STOP THE REWIND")
+	match k:
 		"sandfall":
 			_spots.clear()
 			_spots.append(player_pos())
@@ -338,7 +361,7 @@ func _activate() -> void:
 			_request_shake(18.0)
 			_burst(global_position, Game.PALE_JADE, 30)
 			if player_pos().distance_to(global_position) < TIMESUP_R:
-				hurt_player(2)
+				hurt_player(1)
 			sand = 1.0
 			_floor_goal = maxf(MIN_FLOOR, _floor_goal - POUR)
 
@@ -451,21 +474,35 @@ func _draw() -> void:
 	for g in _ghosts:
 		if g.kind == "slide":
 			var at: Vector2 = clamp_floor(g.data.from + g.data.aim * SLIDE_SPEED * minf(g.age, 0.8))
-			draw_circle(L(at), SLIDE_HIT, Color(c, 0.3 * (1.0 - g.age)))
+			draw_circle(L(at), SLIDE_HIT, warn_color(1.0 - g.age))
 	for e in _echoes:
-		# where an echo is about to replay
+		# where an echo is about to replay: an outline, then a real telegraph
+		var k := clampf(1.0 - float(e.t) / ECHO_WARN, 0.0, 1.0)
+		var wc := warn_color(k)
 		match e.kind:
 			"sandfall":
 				for sp in e.data:
 					draw_arc(L(sp), FALL_R, 0, TAU, 24, Color(c, 0.5), 2.0)
+					if k > 0.0:
+						draw_circle(L(sp), FALL_R * (0.4 + 0.6 * k), wc)
 			"slide":
 				var n := Vector2(-e.data.aim.y, e.data.aim.x) * SLIDE_HIT
 				var a0 := L(e.data.from)
 				var run: Vector2 = e.data.aim * SLIDE_SPEED * 0.8
 				draw_polyline(PackedVector2Array([a0 + n, a0 + n + run, a0 - n + run, a0 - n, a0 + n]), Color(c, 0.5), 2.0)
+				if k > 0.0:
+					draw_colored_polygon(PackedVector2Array([a0 + n, a0 + n + run, a0 - n + run, a0 - n]), wc)
 			"quicksand":
 				for sp in e.data:
 					draw_arc(L(sp), PIT_R, 0, TAU, 24, Color(c, 0.5), 2.0)
+					if k > 0.0:
+						draw_circle(L(sp), PIT_R * (0.4 + 0.6 * k), wc)
+
+	# running low: the coming blast's edge, before it is even cast
+	var low := sand < LOW_SAND and not dead and state != S.STUN and not (kind == "timesup" and state == S.TELEGRAPH)
+	var blink := low and int(_t * 4.0) % 2 == 0
+	if low:
+		draw_arc(Vector2.ZERO, TIMESUP_R, 0, TAU, 64, Color(c, 0.6 if blink else 0.3), 3.0)
 
 	# telegraphs
 	if state == S.TELEGRAPH:
@@ -491,6 +528,7 @@ func _draw() -> void:
 					draw_colored_polygon(_diamond(pc, 9, 9), Game.PALE_JADE if filled else Color(c, 0.5))
 			"timesup":
 				draw_circle(Vector2.ZERO, TIMESUP_R * (0.6 + 0.4 * eye_t), warn_color())
+				draw_arc(Vector2.ZERO, TIMESUP_R, 0, TAU, 64, Game.PALE_JADE, 4.0)   # its full reach, from the start
 
 	Game.shadow(self, Vector2(0, 4), 64.0 * s)
 	# body: two bulbs on frames, turned by _rot about its middle
@@ -505,7 +543,7 @@ func _draw() -> void:
 	# the clock: sand left in the top bulb, what has run into the bottom
 	var top := clampf(sand, 0.0, 1.0)
 	if top > 0.02:
-		draw_colored_polygon(PackedVector2Array([Vector2(-38 * top, -66 * top), Vector2(38 * top, -66 * top), Vector2(0, 0)]), Color(c, 0.75))
+		draw_colored_polygon(PackedVector2Array([Vector2(-38 * top, -66 * top), Vector2(38 * top, -66 * top), Vector2(0, 0)]), Game.PALE_JADE if blink else Color(c, 0.75))
 	var bot := 1.0 - top
 	if bot > 0.02:
 		var h := 66.0 * bot
@@ -525,6 +563,8 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 16, 0, TAU, 20, Game.PALE_JADE, 3.0)
 	draw_circle(Vector2.ZERO, 9 + 3 * eye_t, eye_color())
 	draw_set_transform(Vector2.ZERO)
+	if neck_open() and not dead:
+		draw_open_mark(Vector2(0, -90) + kick(), 96.0)     # round the whole glass: on it, the ring is lost
 
 
 func _close(p: PackedVector2Array) -> PackedVector2Array:

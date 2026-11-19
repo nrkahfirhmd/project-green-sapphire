@@ -22,7 +22,13 @@ extends "res://scripts/bosses/boss_base.gd"
 ##     then breaks the shield. Unaligned thrusts glance off. The dial
 ##     alternates with the other attacks.
 ##
-## Health 25: phase 2 at 18, phase 3 at 10. global_position is the core's
+## Warnings, after the Pendulum: the open core wears the pulsing "strike
+## here" ring, pips over the core count the keys picked toward opening it,
+## Volley draws each key's line to the player before it flies and rings a
+## flying key Jade while it can be parried, and the first fight names each
+## trick once in the HUD hint.
+##
+## Health 32: phase 2 at 22, phase 3 at 11. global_position is the core's
 ## point on the floor; core and keys float LIFT above their floor points.
 ## Timer: the core's inner diamond.
 
@@ -68,6 +74,7 @@ const DIAL_SPIN := 0.9
 const DIAL_TIME := 6.0
 const DIAL_KEYS := 4
 const ALIGN := 0.25              # radians either side of the core-to-player line
+const PARRY_REACH := 220.0       # a flying key this close to the player rings Jade: parry now
 
 var state := S.IDLE
 var kind := ""
@@ -92,11 +99,12 @@ var _recast := false             # the Lock already followed the player once
 var _ring := 175.0               # Lock ring radius right now
 var _dial_ang := 0.0
 var _last := ""
+static var _taught := {}         # hints shown this session, by name
 
 
 func _ready() -> void:
-	max_hp = 25
-	phase_hp = [18, 10]
+	max_hp = 32
+	phase_hp = [22, 11]
 	super()
 	for i in KEYS:
 		keys.append(global_position + Vector2(ORBIT, 0).rotated(TAU * i / KEYS))
@@ -169,6 +177,7 @@ func _knock(i: int, dir: Vector2) -> void:
 				_ktime[k] = maxf(_ktime[k], OPEN_TIME)
 		_request_shake(10.0)
 		sfx("unlock")
+		_teach("open", "LOCK PICKED! STRIKE THE CORE")
 
 
 func _aligned(i: int) -> bool:
@@ -250,9 +259,23 @@ func _pick() -> String:
 	return pool.pick_random()
 
 
+## A hint, the first time only.
+func _teach(id: String, text: String) -> void:
+	if not _taught.has(id):
+		_taught[id] = true
+		hint(text)
+
+
 func _begin(k: String) -> void:
 	_chain = ""
 	kind = k
+	match k:
+		"volley":
+			_teach("volley", "THRUST A FLYING KEY TO SEND IT BACK")
+		"dial":
+			_teach("dial", "THRUST THE KEY THAT GLOWS")
+		_:
+			_teach("pick", "THRUST THE KEYS TO PICK THE LOCK")
 	_last = k
 	state = S.TELEGRAPH
 	_total = 0.5 if (k == "lock" and _recast) else spd(ATK[k]["windup"])
@@ -475,7 +498,7 @@ func _draw() -> void:
 						var a := _origin + n * (slot - 3.5) * WALL_GAP
 						var b := a + n * WALL_GAP
 						draw_colored_polygon(PackedVector2Array([L(a), L(b), L(b + _aim * reach), L(a + _aim * reach)]),
-							Color(Game.PALE_JADE, 0.08 + 0.2 * eye_t))
+							warn_color())
 			"lock":
 				# the ring, with a bright pulse before each step in
 				var step := LOCK_WARN + LOCK_SHRINK
@@ -490,6 +513,11 @@ func _draw() -> void:
 					draw_colored_polygon(pts, warn_color())
 			"dial":
 				draw_arc(Vector2.ZERO, DIAL_R, 0, TAU, 64, Color(Game.SAPPHIRE_CORE, 0.35), 2.0)
+			"volley":
+				# each waiting key's line to the player: where it will fly
+				for i in KEYS:
+					if _mode[i] == K.FORM:
+						draw_line(L(keys[i]), L(player_pos()), warn_color(maxf(eye_t, 0.6) if state == S.ATTACK else eye_t), 6.0)
 
 	# keys: shadow on the floor, key floating above it
 	for i in KEYS:
@@ -509,6 +537,9 @@ func _draw() -> void:
 					dir = (keys[i] - global_position).normalized()  # blade points outward
 		if glow:
 			draw_arc(Vector2(0, -LIFT + bob * 0.6), 22.0, 0, TAU, 24, Game.PALE_JADE, 4.0)
+		if _mode[i] == K.FLY and keys[i].distance_to(player_pos()) <= PARRY_REACH:
+			# the parry window, as on the Pendulum's blade
+			draw_arc(Vector2(0, -LIFT + bob * 0.6), 30.0 + 10.0 * sin(_t * 24.0), 0, TAU, 24, Game.PALE_JADE, 4.0)
 		_key(Vector2(0, -LIFT + bob * 0.6), dir, Color(Game.SAPPHIRE_CORE, 0.6) if out else body_color())
 	draw_set_transform(Vector2.ZERO)
 
@@ -518,10 +549,20 @@ func _draw() -> void:
 	var c := Vector2(0, -LIFT - 10 + bob)
 	if not _can_be_hit():
 		draw_arc(c, 34, 0, TAU, 32, Color(Game.SAPPHIRE_CORE, 0.7), 3.0)
+		# the lock's progress: one pip per key picked toward opening it
+		var picked := 0
+		for k in KEYS:
+			if _mode[k] == K.KNOCK:
+				picked += 1
+		for k in PICKS_TO_OPEN:
+			var pc := c + Vector2((k - (PICKS_TO_OPEN - 1) * 0.5) * 26.0, -58)
+			draw_colored_polygon(_diamond(pc, 8, 8), Game.PALE_JADE if k < picked else Color(Game.SAPPHIRE_CORE, 0.5))
 	draw_colored_polygon(_diamond(c, 26, 32), body_color())
 	draw_colored_polygon(_diamond(c + Vector2(-6, -6), 12, 14), Color(Game.SAPPHIRE_CORE, 0.35))
 	draw_colored_polygon(_diamond(c, 11 + 4 * eye_t, 13 + 4 * eye_t), eye_color())
 	draw_set_transform(Vector2.ZERO)
+	if _can_be_hit() and not dead:
+		draw_open_mark(Vector2(0, -LIFT - 10 + bob))
 
 
 ## A key: round bow with a hole, a shaft along `dir`, a two-tooth bit.
